@@ -59,16 +59,23 @@
   @keyframes s { to { transform:rotate(360deg); } }
   /* constellation map */
   .galaxy-wrap { position:relative; margin-bottom:16px; border:1px solid var(--border);
-                 border-radius:12px; overflow:hidden;
-                 background:radial-gradient(ellipse at 50% 40%, #10182b 0%, #080b14 70%, #05070d 100%); }
-  #galaxy { display:block; width:100%; height:360px; }
-  .galaxy-hud { position:absolute; top:10px; left:12px; font-size:12px; color:var(--muted);
-                pointer-events:none; text-shadow:0 0 8px #000; }
+                 border-radius:14px; overflow:hidden;
+                 background:radial-gradient(120% 90% at 50% 30%, #141d38 0%, #0a1122 45%, #06080f 78%, #04060c 100%); }
+  #galaxy { display:block; width:100%; height:460px; touch-action:none; cursor:grab; }
+  #galaxy.drag { cursor:grabbing; }
+  .galaxy-hud { position:absolute; top:12px; left:14px; font-size:12px; color:var(--muted);
+                pointer-events:none; text-shadow:0 0 10px #000; letter-spacing:.02em; }
   .galaxy-hud b { color:var(--fg); }
-  .galaxy-toggle { position:absolute; top:8px; right:10px; }
-  .tip { position:fixed; z-index:20; pointer-events:none; background:rgba(13,17,23,.95);
-         border:1px solid var(--border); border-radius:8px; padding:6px 10px; font-size:12px;
-         color:var(--fg); max-width:260px; display:none; box-shadow:0 4px 20px rgba(0,0,0,.5); }
+  .galaxy-hint { position:absolute; bottom:10px; left:14px; font-size:11px; color:#5c6a86;
+                 pointer-events:none; text-shadow:0 0 8px #000; }
+  .galaxy-ctrl { position:absolute; top:10px; right:10px; display:flex; gap:6px; }
+  .galaxy-ctrl button { width:30px; height:30px; padding:0; font-size:16px; line-height:1;
+                        background:rgba(20,28,48,.7); border:1px solid var(--border); color:var(--fg);
+                        backdrop-filter:blur(4px); border-radius:8px; }
+  .galaxy-ctrl button:hover { background:rgba(40,55,90,.9); }
+  .tip { position:fixed; z-index:20; pointer-events:none; background:rgba(13,17,23,.96);
+         border:1px solid var(--border); border-radius:8px; padding:7px 11px; font-size:12px;
+         color:var(--fg); max-width:280px; display:none; box-shadow:0 6px 26px rgba(0,0,0,.6); }
   .tip .t-site { font-weight:600; } .tip .t-sub { color:var(--muted); }
   /* removal modal */
   .overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; z-index:10;
@@ -107,7 +114,13 @@
   <div class="galaxy-wrap" id="galaxyWrap" style="display:none">
     <canvas id="galaxy"></canvas>
     <div class="galaxy-hud" id="galaxyHud"></div>
-    <button class="ghost galaxy-toggle" id="galaxyToggle">Hide map</button>
+    <div class="galaxy-hint">scroll to zoom · drag to pan · hover a star · click to open</div>
+    <div class="galaxy-ctrl">
+      <button id="zIn" title="Zoom in">+</button>
+      <button id="zOut" title="Zoom out">−</button>
+      <button id="zFit" title="Fit to view">⤢</button>
+      <button class="galaxy-toggle" id="galaxyToggle" title="Hide map">✕</button>
+    </div>
   </div>
   <div class="status" id="status"></div>
   <div class="actions" id="actions" style="display:none">
@@ -139,149 +152,233 @@ let results = [];
 let detectedKind = null;
 let exploreFree = false;
 
-/* ---------------- Constellation map ---------------- */
+/* ---------------- Constellation map (premium) ---------------- */
 const Galaxy = (() => {
   const cv = $("#galaxy"), ctx = cv.getContext("2d");
-  let W = 0, H = 0, cx = 0, cy = 0, dpr = 1;
-  let bg = [];                 // background drifting stars
-  let hubs = new Map();        // engine name -> hub node
-  let nodes = [];              // finding nodes
-  let center = null;           // query node
-  let rot = 0, raf = null, running = false;
+  let W=0, H=0, dpr=1;
+  let layers = [];             // parallax starfield layers
+  let neb = [];                // drifting nebula blobs
+  let hubs = new Map();
+  let nodes = [];
+  let center = null;
+  let rot = 0, running=false, last=0;
+  const cam = { x:0, y:0, zoom:1, tx:0, ty:0, tz:1 };   // world camera (eased)
+  const HUB_R = 190, BAND0 = 250, BAND1 = 130;          // world-space radii
   const ENGINE_COLORS = { maigret:"#7c9cff", sherlock:"#2f81f7", gosearch:"#3fb950",
                           holehe:"#d29922", phoneinfoga:"#56d4dd" };
+  const glowCache = {};
+  const easeOutBack = t => { const c=1.70158+1; return 1 + c*Math.pow(t-1,3) + 1.70158*Math.pow(t-1,2); };
+  const easeOutCubic = t => 1 - Math.pow(1-t, 3);
 
-  function resize() {
-    dpr = Math.min(window.devicePixelRatio || 1, 2);
-    W = cv.clientWidth; H = cv.clientHeight; cx = W/2; cy = H/2;
-    cv.width = W*dpr; cv.height = H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+  function glow(color) {
+    if (glowCache[color]) return glowCache[color];
+    const s=64, c=document.createElement("canvas"); c.width=c.height=s;
+    const g=c.getContext("2d"), grd=g.createRadialGradient(s/2,s/2,0,s/2,s/2,s/2);
+    grd.addColorStop(0, hexA(color,1)); grd.addColorStop(0.25, hexA(color,0.55));
+    grd.addColorStop(1, hexA(color,0));
+    g.fillStyle=grd; g.fillRect(0,0,s,s);
+    return glowCache[color]=c;
   }
-  function seedBg() {
-    bg = Array.from({length: 150}, (_,i) => ({
-      x: Math.random()*W, y: Math.random()*H, r: Math.random()*1.4+0.2,
-      tw: Math.random()*Math.PI*2, sp: 0.002+Math.random()*0.006,
-      dx: (Math.random()-0.5)*0.05, dy:(Math.random()-0.5)*0.05 }));
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio||1, 2);
+    W=cv.clientWidth; H=cv.clientHeight;
+    cv.width=W*dpr; cv.height=H*dpr;
+  }
+  function seed() {
+    layers = [0.25,0.5,1].map((depth,i) => Array.from({length: [70,60,40][i]}, () => ({
+      x:Math.random()*W, y:Math.random()*H, r:(Math.random()*1.2+0.3)*(0.6+depth),
+      tw:Math.random()*6.28, sp:0.003+Math.random()*0.01, depth })));
+    neb = [
+      {x:W*0.32,y:H*0.4,r:260,c:"rgba(60,90,200,0.06)",dx:0.06,dy:0.02},
+      {x:W*0.7,y:H*0.6,r:300,c:"rgba(140,60,200,0.05)",dx:-0.05,dy:0.03},
+      {x:W*0.55,y:H*0.3,r:220,c:"rgba(40,150,180,0.05)",dx:0.03,dy:-0.04},
+    ];
   }
   function reset(query) {
-    resize(); seedBg(); hubs.clear(); nodes = []; rot = 0;
-    center = { label: query, a: 0, r: 0, alpha: 0, tAlpha: 1, pop: 0 };
-    if (!running) { running = true; loop(); }
+    resize(); seed(); hubs.clear(); nodes=[]; rot=0;
+    cam.x=cam.tx=0; cam.y=cam.ty=0; cam.zoom=cam.tz=Math.min(W,H)/ (2*(BAND0+BAND1+60));
+    center = { label:query, alpha:0, tAlpha:1, pop:0 };
+    updateHud();
+    if (!running) { running=true; last=performance.now(); requestAnimationFrame(loop); }
   }
   function hubFor(name) {
     if (hubs.has(name)) return hubs.get(name);
-    const idx = hubs.size;
-    const hub = { name, label: name, a: 0, baseA: 0, r: Math.min(W,H)*0.24,
-                  color: ENGINE_COLORS[name]||"#8b949e", alpha:0, tAlpha:1, pop:0 };
+    const hub = { name, baseA:0, color:ENGINE_COLORS[name]||"#8b949e", alpha:0, tAlpha:1, pop:0 };
     hubs.set(name, hub);
-    // redistribute hub angles evenly as new ones arrive
-    let i = 0, n = hubs.size;
-    for (const h of hubs.values()) { h.baseA = (i/n)*Math.PI*2 - Math.PI/2; i++; }
+    let i=0, n=hubs.size;
+    for (const h of hubs.values()){ h.baseA=(i/n)*6.283 - 1.5708; i++; }
     return hub;
   }
-  function addEngine(name) { hubFor(name); }
+  function addEngine(name){ hubFor(name); }
   function addFinding(f) {
     const hub = f.source ? hubFor(f.source) : null;
-    const band = Math.min(W,H)*0.30 + Math.random()*Math.min(W,H)*0.16;
-    const spread = 0.55;
-    const baseA = (hub ? hub.baseA : Math.random()*Math.PI*2) + (Math.random()-0.5)*spread;
-    nodes.push({
-      f, hub, baseA, r: band, alpha:0, tAlpha:1, pop:0,
-      breach: f.kind === "breach",
-      color: f.kind==="breach" ? "#f85149" : (hub? hub.color : "#8b949e"),
-      rad: f.kind==="breach" ? 4.2 : 2.4, tw: Math.random()*Math.PI*2,
-    });
-    updateHud();
+    const baseA = (hub?hub.baseA:Math.random()*6.283) + (Math.random()-0.5)*0.6;
+    const r = BAND0 + Math.random()*BAND1;
+    const breach = f.kind==="breach";
+    const node = { f, hub, baseA, r, alpha:0, tAlpha:1, age:0, breach,
+      color: breach?"#f85149":(hub?hub.color:"#8b949e"),
+      rad: breach?5:2.6, tw:Math.random()*6.28, flow:Math.random(),
+      parts: [], nova: breach?0:-1 };
+    for (let i=0;i<10;i++){ const a=Math.random()*6.28, sp=20+Math.random()*40;
+      node.parts.push({a, sp, life:1, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp}); }
+    nodes.push(node); updateHud();
   }
   function updateHud() {
     const b = nodes.filter(n=>n.breach).length;
-    $("#galaxyHud").innerHTML = `<b>${nodes.length}</b> nodes mapped · <b>${hubs.size}</b> engines`
-      + (b?` · <span style="color:#f85149">${b} breach</span>`:``);
+    $("#galaxyHud").innerHTML = `<b>${nodes.length}</b> nodes · <b>${hubs.size}</b> engines`
+      + (b?` · <span style="color:#f85149">⚠ ${b} breach</span>`:``);
   }
-  function pos(node) { const a = node.baseA + rot; return [cx + Math.cos(a)*node.r, cy + Math.sin(a)*node.r]; }
+  // world <-> screen
+  const S = (wx,wy) => [ (wx-cam.x)*cam.zoom + W/2, (wy-cam.y)*cam.zoom + H/2 ];
+  const toWorld = (sx,sy) => [ (sx-W/2)/cam.zoom + cam.x, (sy-H/2)/cam.zoom + cam.y ];
+  const worldOf = (baseA,r) => { const a=baseA+rot; return [Math.cos(a)*r, Math.sin(a)*r]; };
 
-  function loop() {
-    rot += 0.0009;
+  function loop(ts) {
+    const dt = Math.min((ts-last)/1000, 0.05); last=ts;
+    rot += dt*0.05;
+    cam.x += (cam.tx-cam.x)*0.12; cam.y += (cam.ty-cam.y)*0.12; cam.zoom += (cam.tz-cam.zoom)*0.12;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
     ctx.clearRect(0,0,W,H);
-    // background stars
-    for (const s of bg) {
-      s.tw += s.sp; s.x=(s.x+s.dx+W)%W; s.y=(s.y+s.dy+H)%H;
-      const a = 0.35 + Math.sin(s.tw)*0.3;
-      ctx.globalAlpha = Math.max(0,a); ctx.fillStyle = "#cdd9ff";
-      ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,7); ctx.fill();
+
+    // nebula (screen space, slow drift)
+    ctx.globalCompositeOperation="lighter";
+    for (const n of neb){ n.x=(n.x+n.dx+W)%W; n.y=(n.y+n.dy+H)%H;
+      const g=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,n.r);
+      g.addColorStop(0,n.c); g.addColorStop(1,"rgba(0,0,0,0)");
+      ctx.fillStyle=g; ctx.fillRect(0,0,W,H); }
+    // parallax starfield (shift opposite camera by depth)
+    for (const layer of layers) for (const s of layer){
+      s.tw+=s.sp;
+      const px=(s.x - cam.x*cam.zoom*s.depth*0.15 + W)%W, py=(s.y - cam.y*cam.zoom*s.depth*0.15 + H)%H;
+      ctx.globalAlpha=Math.max(0,0.4+Math.sin(s.tw)*0.35)*s.depth;
+      ctx.fillStyle="#cdd9ff"; ctx.beginPath(); ctx.arc(px,py,s.r,0,6.283); ctx.fill();
     }
-    ctx.globalAlpha = 1;
-    if (!center) { raf = requestAnimationFrame(loop); return; }
-    center.alpha += (center.tAlpha-center.alpha)*0.08;
-    // edges center->hub
-    for (const h of hubs.values()) {
+    ctx.globalAlpha=1; ctx.globalCompositeOperation="source-over";
+    if (!center){ requestAnimationFrame(loop); return; }
+    center.alpha += (center.tAlpha-center.alpha)*0.08; center.pop += (1-center.pop)*0.05;
+
+    const [cwx,cwy]=[0,0], [csx,csy]=S(0,0);
+    // ---- edges center->hub with flowing energy ----
+    ctx.globalCompositeOperation="lighter";
+    for (const h of hubs.values()){
       h.alpha += (h.tAlpha-h.alpha)*0.08; h.pop += (1-h.pop)*0.06;
-      const [hx,hy] = pos({baseA:h.baseA, r:h.r});
-      const g = ctx.createLinearGradient(cx,cy,hx,hy);
-      g.addColorStop(0, "rgba(120,150,255,0.35)"); g.addColorStop(1, hexA(h.color,0.15));
-      ctx.strokeStyle = g; ctx.lineWidth = 1.1; ctx.globalAlpha = h.alpha;
-      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(hx,hy); ctx.stroke();
+      const [hwx,hwy]=worldOf(h.baseA,HUB_R), [hsx,hsy]=S(hwx,hwy);
+      const g=ctx.createLinearGradient(csx,csy,hsx,hsy);
+      g.addColorStop(0,"rgba(150,180,255,0.4)"); g.addColorStop(1,hexA(h.color,0.12));
+      ctx.strokeStyle=g; ctx.lineWidth=1.4*cam.zoom+0.3; ctx.globalAlpha=h.alpha;
+      ctx.beginPath(); ctx.moveTo(csx,csy); ctx.lineTo(hsx,hsy); ctx.stroke();
+      // energy pulse
+      const tt=((ts*0.0004)+h.baseA)%1, ex=csx+(hsx-csx)*tt, ey=csy+(hsy-csy)*tt;
+      ctx.globalAlpha=h.alpha*(1-tt); ctx.fillStyle=hexA(h.color,0.9);
+      ctx.beginPath(); ctx.arc(ex,ey,2.2,0,6.283); ctx.fill();
     }
-    // edges hub->finding + finding stars
-    for (const n of nodes) {
-      n.alpha += (n.tAlpha-n.alpha)*0.09; n.pop += (1-n.pop)*0.05; n.tw += 0.05;
-      const [nx,ny] = pos(n);
-      const anchor = n.hub ? pos({baseA:n.hub.baseA, r:n.hub.r}) : [cx,cy];
-      ctx.globalAlpha = n.alpha*0.5; ctx.strokeStyle = hexA(n.color,0.5); ctx.lineWidth = 0.7;
-      ctx.beginPath(); ctx.moveTo(anchor[0],anchor[1]); ctx.lineTo(nx,ny); ctx.stroke();
-      const pulse = n.breach ? (1+Math.sin(n.tw)*0.35) : 1;
-      const rr = n.rad*n.pop*pulse;
-      ctx.globalAlpha = n.alpha;
-      ctx.shadowColor = n.color; ctx.shadowBlur = n.breach?16:8;
-      ctx.fillStyle = n.color; ctx.beginPath(); ctx.arc(nx,ny,rr,0,7); ctx.fill();
-      ctx.shadowBlur = 0;
-      n._sx = nx; n._sy = ny; n._sr = Math.max(rr,6); // hit box
+    // ---- edges hub->finding (curved) + energy + nodes ----
+    for (const n of nodes){
+      n.age+=dt; n.alpha += (n.tAlpha-n.alpha)*0.1; n.tw+=dt*3;
+      const grow = easeOutCubic(Math.min(n.age/0.7,1));
+      const [nwx,nwy]=worldOf(n.baseA, n.r*grow), [nsx,nsy]=S(nwx,nwy);
+      const [awx,awy]= n.hub?worldOf(n.hub.baseA,HUB_R):[0,0]; const [asx,asy]=S(awx,awy);
+      // curved edge
+      const mx=(asx+nsx)/2, my=(asy+nsy)/2, dx=nsy-asy, dy=asx-nsx, k=0.12;
+      const cpx=mx+dx*k, cpy=my+dy*k;
+      ctx.globalAlpha=n.alpha*0.45; ctx.strokeStyle=hexA(n.color,0.6); ctx.lineWidth=0.8*cam.zoom+0.2;
+      ctx.beginPath(); ctx.moveTo(asx,asy); ctx.quadraticCurveTo(cpx,cpy,nsx,nsy); ctx.stroke();
+      // flowing dot along edge
+      n.flow=(n.flow+dt*0.4)%1; const tf=n.flow, it=1-tf;
+      const fx=it*it*asx+2*it*tf*cpx+tf*tf*nsx, fy=it*it*asy+2*it*tf*cpy+tf*tf*nsy;
+      ctx.globalAlpha=n.alpha*0.8; ctx.fillStyle=hexA(n.color,0.9);
+      ctx.beginPath(); ctx.arc(fx,fy,1.6,0,6.283); ctx.fill();
+      // spawn particles
+      for (const p of n.parts){ if(p.life<=0) continue; p.life-=dt*1.6;
+        p.px=(p.px??nwx); const gx=nwx+p.vx*(1-p.life)*0.5, gy=nwy+p.vy*(1-p.life)*0.5;
+        const [ps,pt]=S(gx,gy); ctx.globalAlpha=Math.max(0,p.life)*n.alpha*0.6;
+        ctx.fillStyle=hexA(n.color,0.9); ctx.beginPath(); ctx.arc(ps,pt,1.3,0,6.283); ctx.fill(); }
+      // supernova ring for breach
+      if (n.breach && n.nova<1.4){ n.nova+=dt*1.2;
+        const nr=(easeOutCubic(Math.min(n.nova/1.4,1)))*46*cam.zoom;
+        ctx.globalAlpha=Math.max(0,(1-n.nova/1.4))*n.alpha; ctx.strokeStyle=hexA("#f85149",0.8);
+        ctx.lineWidth=2; ctx.beginPath(); ctx.arc(nsx,nsy,nr,0,6.283); ctx.stroke(); }
+      // bloom + core
+      const hov = n===hovered;
+      const pulse = n.breach ? 1+Math.sin(n.tw*1.5)*0.3 : 1;
+      const pop = easeOutBack(Math.min(n.age/0.5,1));
+      const rr = n.rad*pop*pulse*(hov?1.7:1)*cam.zoom;
+      const gsz = rr*(n.breach?7:5);
+      ctx.globalAlpha=n.alpha*(hov?1:0.85);
+      const gs=glow(n.color); ctx.drawImage(gs, nsx-gsz, nsy-gsz, gsz*2, gsz*2);
+      ctx.globalAlpha=n.alpha; ctx.fillStyle="#fff";
+      ctx.beginPath(); ctx.arc(nsx,nsy,Math.max(rr*0.6,0.8),0,6.283); ctx.fill();
+      n._sx=nsx; n._sy=nsy; n._sr=Math.max(rr+4,7);
     }
-    // hubs on top
-    for (const h of hubs.values()) {
-      const [hx,hy] = pos({baseA:h.baseA, r:h.r});
-      ctx.globalAlpha = h.alpha;
-      ctx.shadowColor = h.color; ctx.shadowBlur = 12;
-      ctx.fillStyle = h.color; ctx.beginPath(); ctx.arc(hx,hy,4.5*h.pop,0,7); ctx.fill();
-      ctx.shadowBlur = 0; ctx.globalAlpha = h.alpha*0.9;
-      ctx.fillStyle = "#c9d4ee"; ctx.font = "11px system-ui"; ctx.textAlign="center";
-      ctx.fillText(h.label, hx, hy-9);
-      h._sx=hx; h._sy=hy;
+    // ---- hubs ----
+    for (const h of hubs.values()){
+      const [hwx,hwy]=worldOf(h.baseA,HUB_R), [hsx,hsy]=S(hwx,hwy);
+      const gsz=9*cam.zoom+6; ctx.globalAlpha=h.alpha;
+      ctx.drawImage(glow(h.color), hsx-gsz, hsy-gsz, gsz*2, gsz*2);
+      ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(hsx,hsy,3*cam.zoom+1,0,6.283); ctx.fill();
     }
-    // center query star
-    ctx.globalAlpha = center.alpha;
-    const cr = 6 + Math.sin(rot*6)*1.2;
-    ctx.shadowColor = "#eaf2ff"; ctx.shadowBlur = 22;
-    ctx.fillStyle = "#eaf2ff"; ctx.beginPath(); ctx.arc(cx,cy,cr,0,7); ctx.fill();
-    ctx.shadowBlur=0; ctx.fillStyle="#eaf2ff"; ctx.font="600 12px system-ui"; ctx.textAlign="center";
-    ctx.fillText(center.label, cx, cy+cr+16);
-    ctx.globalAlpha = 1;
-    raf = requestAnimationFrame(loop);
+    ctx.globalCompositeOperation="source-over";
+    for (const h of hubs.values()){
+      const [hwx,hwy]=worldOf(h.baseA,HUB_R), [hsx,hsy]=S(hwx,hwy);
+      ctx.globalAlpha=h.alpha*0.95; ctx.fillStyle="#dbe4ff";
+      ctx.font=`${Math.round(11)}px system-ui`; ctx.textAlign="center";
+      ctx.fillText(h.name, hsx, hsy-11*cam.zoom-3);
+    }
+    // ---- center query star ----
+    ctx.globalCompositeOperation="lighter";
+    const cr=(7+Math.sin(ts*0.004)*1.5)*cam.zoom, gsz=cr*6;
+    ctx.globalAlpha=center.alpha; ctx.drawImage(glow("#eaf2ff"), csx-gsz, csy-gsz, gsz*2, gsz*2);
+    ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(csx,csy,cr*0.6,0,6.283); ctx.fill();
+    ctx.globalCompositeOperation="source-over";
+    ctx.globalAlpha=center.alpha; ctx.fillStyle="#eaf2ff"; ctx.font="600 13px system-ui"; ctx.textAlign="center";
+    ctx.fillText(center.label, csx, csy+cr+18);
+    ctx.globalAlpha=1;
+    requestAnimationFrame(loop);
   }
-  function hexA(hex, a) {
-    const n = parseInt(hex.slice(1),16);
-    return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;
-  }
-  // interaction
-  cv.addEventListener("mousemove", e => {
-    const rect = cv.getBoundingClientRect(), mx=e.clientX-rect.left, my=e.clientY-rect.top;
-    let hit = null;
-    for (const n of nodes) if (n._sx!=null && Math.hypot(n._sx-mx,n._sy-my) <= n._sr+4) { hit=n; break; }
-    const tip = $("#tip");
-    if (hit) {
-      tip.style.display="block"; tip.style.left=(e.clientX+12)+"px"; tip.style.top=(e.clientY+12)+"px";
-      tip.innerHTML = `<div class="t-site">${hit.breach?'⚠ ':''}${escv(hit.f.site)}</div>`
-        + `<div class="t-sub">${escv(hit.f.source)} · ${escv(hit.f.value||'')}</div>`
-        + (hit.f.extra&&(hit.f.extra.about||hit.f.extra.alert)?`<div class="t-sub">${escv(hit.f.extra.about||hit.f.extra.alert)}</div>`:``);
-      cv.style.cursor = hit.f.url ? "pointer":"default";
-    } else { tip.style.display="none"; cv.style.cursor="default"; }
+  function hexA(hex,a){ const n=parseInt(hex.slice(1),16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`; }
+
+  // ---------- interaction ----------
+  let hovered=null, drag=null, moved=0;
+  function pick(sx,sy){ let best=null,bd=1e9;
+    for (const n of nodes){ if(n._sx==null) continue; const d=Math.hypot(n._sx-sx,n._sy-sy);
+      if (d<=n._sr && d<bd){ bd=d; best=n; } } return best; }
+  cv.addEventListener("pointerdown", e => { drag={x:e.clientX,y:e.clientY,cx:cam.tx,cy:cam.ty}; moved=0; cv.setPointerCapture(e.pointerId); cv.classList.add("drag"); });
+  cv.addEventListener("pointerup", e => {
+    cv.classList.remove("drag");
+    if (drag && moved<5){ const r=cv.getBoundingClientRect(); const n=pick(e.clientX-r.left,e.clientY-r.top);
+      if (n && n.f.url) window.open(n.f.url,"_blank"); }
+    drag=null;
   });
-  cv.addEventListener("mouseleave", ()=> $("#tip").style.display="none");
-  cv.addEventListener("click", e => {
-    const rect = cv.getBoundingClientRect(), mx=e.clientX-rect.left, my=e.clientY-rect.top;
-    for (const n of nodes) if (n._sx!=null && Math.hypot(n._sx-mx,n._sy-my)<=n._sr+4 && n.f.url) { window.open(n.f.url,"_blank"); break; }
+  cv.addEventListener("pointermove", e => {
+    const r=cv.getBoundingClientRect(), sx=e.clientX-r.left, sy=e.clientY-r.top;
+    if (drag){ moved+=Math.abs(e.movementX)+Math.abs(e.movementY);
+      cam.tx = drag.cx - (e.clientX-drag.x)/cam.zoom; cam.ty = drag.cy - (e.clientY-drag.y)/cam.zoom; return; }
+    hovered = pick(sx,sy); const tip=$("#tip");
+    if (hovered){ tip.style.display="block"; tip.style.left=(e.clientX+14)+"px"; tip.style.top=(e.clientY+14)+"px";
+      const f=hovered.f;
+      tip.innerHTML=`<div class="t-site">${hovered.breach?'⚠ ':''}${escv(f.site)}</div>`
+        +`<div class="t-sub">${escv(f.source)} · ${escv(f.value||'')}</div>`
+        +(f.extra&&(f.extra.about||f.extra.alert)?`<div class="t-sub">${escv(f.extra.about||f.extra.alert)}</div>`:``)
+        +(f.url?`<div class="t-sub" style="color:#2f81f7">click to open ↗</div>`:``);
+    } else tip.style.display="none";
   });
+  cv.addEventListener("pointerleave", ()=>{ $("#tip").style.display="none"; hovered=null; });
+  cv.addEventListener("wheel", e => {
+    e.preventDefault();
+    const r=cv.getBoundingClientRect(), sx=e.clientX-r.left, sy=e.clientY-r.top;
+    const [wx,wy]=toWorld(sx,sy);
+    const f = e.deltaY<0 ? 1.15 : 1/1.15;
+    cam.tz = Math.max(0.15, Math.min(6, cam.tz*f));
+    // keep cursor world point fixed
+    cam.tx = wx - (sx-W/2)/cam.tz; cam.ty = wy - (sy-H/2)/cam.tz;
+    cam.x=cam.tx; cam.y=cam.ty; // snap pan so zoom feels anchored
+  }, {passive:false});
+  function zoomBy(f){ cam.tz=Math.max(0.15,Math.min(6,cam.tz*f)); }
+  function fit(){ let mr=BAND0+BAND1+40;
+    cam.tx=0; cam.ty=0; cam.tz=Math.min(W,H)/(2*mr); }
+  $("#zIn").onclick=()=>zoomBy(1.3); $("#zOut").onclick=()=>zoomBy(1/1.3); $("#zFit").onclick=fit;
   function escv(s){ return String(s??"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-  window.addEventListener("resize", () => { if (running) resize(); });
+  window.addEventListener("resize", ()=>{ if(running){ resize(); } });
   return { reset, addEngine, addFinding };
 })();
 
@@ -434,12 +531,7 @@ $("#export").onclick = () => {
 };
 $("#go").onclick = run;
 $("#q").addEventListener("keydown", e => { if (e.key === "Enter") run(); });
-$("#galaxyToggle").onclick = () => {
-  const c = $("#galaxy");
-  const hidden = c.style.display === "none";
-  c.style.display = hidden ? "block" : "none";
-  $("#galaxyToggle").textContent = hidden ? "Hide map" : "Show map";
-};
+$("#galaxyToggle").onclick = () => { $("#galaxyWrap").style.display = "none"; };
 loadEngines();
 </script>
 </body>
