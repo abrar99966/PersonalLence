@@ -13,6 +13,13 @@ license: mit
 
 *Triangulate a digital footprint across the galaxy.*
 
+<p align="center">
+  <a href="https://Abrartxt-parallax.hf.space"><img src="https://img.shields.io/badge/🔭_Live_demo-Parallax-2f81f7?style=for-the-badge" alt="Live demo" /></a>
+</p>
+
+<p align="center">
+  <b>▶ Try it live: <a href="https://Abrartxt-parallax.hf.space">Abrartxt-parallax.hf.space</a></b>
+</p>
 
 <p align="center">
   <img src="assets/parallax-demo.gif" alt="Parallax constellation search — the query at the center, engines as star-hubs, findings streaming in as connected nodes, breaches pulsing red" width="760" />
@@ -76,9 +83,11 @@ in `./bin`/PATH but `docker` is present, the engine automatically runs
 
 ## Deploy (cloud)
 
-Runs open locally; add Google sign-in and host it on Render + Cloudflare —
-see **[DEPLOY.md](DEPLOY.md)**. (Cloudflare Pages/Workers can't run it — it's a
-Python server with subprocess engines; it needs a container host.)
+**Live now on Hugging Face Spaces → <https://Abrartxt-parallax.hf.space>**
+
+Runs open locally; add Google sign-in and host it free (Hugging Face Spaces or
+Render) — see **[DEPLOY.md](DEPLOY.md)**. (Cloudflare Pages/Workers can't run it —
+it's a Python server with subprocess engines; it needs a container host.)
 
 ## Correlation / pivot
 
