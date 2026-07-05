@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+*.log
+mtest/
+reports/
+osint-results.json
+# standalone binaries — fetched via scripts/fetch-binaries.ps1, not committed
+bin/*.exe
+# gosearch scan-output reports & any scan artifacts — NEVER commit OSINT data.
+# Ignore all .txt except the ones we explicitly need.
+*.txt
+!requirements.txt
+e2e_result.json
+osint-results.json
+
