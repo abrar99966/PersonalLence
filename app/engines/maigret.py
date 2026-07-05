@@ -23,12 +23,16 @@ class Maigret(Engine):
         with tempfile.TemporaryDirectory(prefix="maigret_") as out:
             cmd = [
                 self.exe(), target,
+                "-a",                    # scan ALL sites (default is only top-500)
+                "--retries", "1",        # one retry so contention timeouts don't drop hits
                 "--no-progressbar", "--no-color",
-                "--timeout", "20",
+                "--timeout", "30",       # give slow sites room under parallel load
                 "-J", "simple",          # write simple json report
                 "-fo", out,
             ]
-            await run_cmd(cmd, timeout=300)
+            # maigret is the deep engine (thousands of sites); it batches at the end,
+            # so give it a generous outer ceiling. Users can Stop early if needed.
+            await run_cmd(cmd, timeout=420)
             for path in glob.glob(os.path.join(out, "**", "*.json"), recursive=True):
                 findings += await self._parse_report(path, target, emit)
         await progress({"found": len(findings)})
