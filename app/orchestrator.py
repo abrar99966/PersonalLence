@@ -38,10 +38,11 @@ async def orchestrate(query: str, kind: InputKind | None, pivot: bool, sink: Eve
         results.append(f)
         await sink({"type": "finding", "finding": f.model_dump()})
 
-    # ---- wave 1: run engines that accept the raw input kind ----
-    await _run_wave(query, kind, emit, sink)
-
-    # ---- wave 2: pivot — derive usernames and re-run username engines ----
+    # Build every wave up front, then run them all CONCURRENTLY:
+    #   - the raw input against engines that accept its kind
+    #   - each pivot handle (email local-part / name variants) against username engines
+    # Previously pivot handles ran back-to-back; now the whole search is parallel.
+    waves = [_run_wave(query, kind, emit, sink)]
     if pivot:
         pivots: list[str] = []
         if kind is InputKind.email:
@@ -52,8 +53,9 @@ async def orchestrate(query: str, kind: InputKind | None, pivot: bool, sink: Eve
             if not handle or handle == query:
                 continue
             await sink({"type": "pivot", "handle": handle})
-            await _run_wave(handle, InputKind.username, emit, sink)
+            waves.append(_run_wave(handle, InputKind.username, emit, sink))
 
+    await asyncio.gather(*waves)
     await sink({"type": "done", "count": len(results)})
     return results
 

@@ -437,15 +437,21 @@ async function run() {
     body: JSON.stringify({ query: q })
   })).json();
 
+  const active = new Set();
+  const showActive = () => {
+    if (!active.size) return;
+    $("#status").innerHTML = `<span class="spin"></span> ${active.size} engine${active.size>1?'s':''} scanning in parallel: <b>${[...active].join(", ")}</b>`;
+  };
   const es = new EventSource(`/api/stream/${job_id}`);
   es.onmessage = ev => {
     const e = JSON.parse(ev.data);
     if (e.type === "detected") { detectedKind = e.kind; $("#status").innerHTML = `<span class="spin"></span> detected <b>${e.kind}</b> — mapping the galaxy…`; }
-    else if (e.type === "engine_start") { Galaxy.addEngine(e.engine); $("#status").innerHTML = `<span class="spin"></span> ${e.engine} scanning <b>${e.target}</b>…`; }
-    else if (e.type === "engine_skip") $("#status").innerHTML += ` · ${e.engine} skipped (${e.reason})`;
-    else if (e.type === "pivot") $("#status").innerHTML = `<span class="spin"></span> pivot → <b>${e.handle}</b>`;
+    else if (e.type === "engine_start") { Galaxy.addEngine(e.engine); active.add(e.engine); showActive(); }
+    else if (e.type === "engine_done" || e.type === "engine_error") { active.delete(e.engine); showActive(); }
+    else if (e.type === "engine_skip") { /* silent */ }
+    else if (e.type === "pivot") { /* handled by galaxy hubs */ }
     else if (e.type === "finding") { addRow(e.finding); Galaxy.addFinding(e.finding); }
-    else if (e.type === "done") { $("#status").textContent = `Done — ${e.count} unique results.`; loadExplore(); }
+    else if (e.type === "done") { active.clear(); $("#status").textContent = `Done — ${e.count} unique results.`; loadExplore(); }
     else if (e.type === "fatal") { $("#status").textContent = `Error: ${e.error}`; }
   };
   es.addEventListener("end", () => { es.close(); $("#go").disabled = false;
