@@ -6,4 +6,7 @@ psutil>=5.9         # reliable subprocess-tree kill on cancel
 sherlock-project
 maigret
 holehe
-# phoneinfoga is a Go binary — install separately (see README)
+socialscan            # username+email definitive existence checks
+ignorant              # phone-number registration checks
+phonenumbers          # split a phone into country-code + national (for ignorant)
+# phoneinfoga & gosearch are Go binaries — fetch via scripts/fetch-binaries.ps1

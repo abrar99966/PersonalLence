@@ -184,7 +184,8 @@ const Galaxy = (() => {
   const cam = { x:0, y:0, zoom:1, tx:0, ty:0, tz:1 };   // world camera (eased)
   const HUB_R = 190, BAND0 = 250, BAND1 = 130;          // world-space radii
   const ENGINE_COLORS = { maigret:"#7c9cff", sherlock:"#2f81f7", gosearch:"#3fb950",
-                          holehe:"#d29922", phoneinfoga:"#56d4dd" };
+                          holehe:"#d29922", phoneinfoga:"#56d4dd",
+                          socialscan:"#ec6cb9", ignorant:"#a371f7" };
   const glowCache = {};
   const easeOutBack = t => { const c=1.70158+1; return 1 + c*Math.pow(t-1,3) + 1.70158*Math.pow(t-1,2); };
   const easeOutCubic = t => 1 - Math.pow(1-t, 3);
@@ -467,7 +468,7 @@ async function run() {
     const id = pgId(eng,tgt); let el = document.getElementById(id);
     if (!el) {
       el = document.createElement("div"); el.id = id; el.className = "pg run";
-      const col = ({maigret:"#7c9cff",sherlock:"#2f81f7",gosearch:"#3fb950",holehe:"#d29922",phoneinfoga:"#56d4dd"})[eng]||"#8b949e";
+      const col = ({maigret:"#7c9cff",sherlock:"#2f81f7",gosearch:"#3fb950",holehe:"#d29922",phoneinfoga:"#56d4dd",socialscan:"#ec6cb9",ignorant:"#a371f7"})[eng]||"#8b949e";
       el.innerHTML = `<div class="pg-top"><span class="pg-name" style="color:${col}">${esc(eng)}</span><span class="pg-cnt">0</span></div>`
         + `<div class="pg-bar"><div class="pg-fill" style="background:${col}"></div></div>`;
       el.title = "target: " + tgt;
