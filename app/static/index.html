@@ -488,9 +488,7 @@ async function run() {
     }
     return el;
   }
-  const es = new EventSource(`/api/stream/${job_id}`);
-  es.onmessage = ev => {
-    const e = JSON.parse(ev.data);
+  function handleEvent(e) {
     if (e.type === "detected") { detectedKind = e.kind; $("#status").innerHTML = `<span class="spin"></span> detected <b>${e.kind}</b> — mapping the galaxy…`; }
     else if (e.type === "engine_start") { Galaxy.addEngine(e.engine); active.add(e.engine); pgRow(e.engine, e.target); showActive(); }
     else if (e.type === "engine_progress") { const el = pgRow(e.engine, e.target); el.querySelector(".pg-cnt").textContent = (e.found ?? 0) + " found"; }
@@ -502,14 +500,26 @@ async function run() {
     else if (e.type === "done") { active.clear(); $("#status").textContent = `Done — ${e.count} unique results.`; loadExplore(); }
     else if (e.type === "cancelled") { active.clear(); document.querySelectorAll(".pg.run").forEach(el=>el.className="pg err"); $("#status").textContent = `⏹ Search stopped — ${results.length} results kept.`; if (detectedKind) loadExplore(); }
     else if (e.type === "fatal") { $("#status").textContent = `Error: ${e.error}`; }
-  };
-  const finish = () => { es.close(); currentJob = null; $("#go").disabled = false; $("#stop").style.display = "none";
-    document.querySelectorAll(".pg.run").forEach(el=>el.className="pg done"); };
-  es.addEventListener("end", () => { finish();
+  }
+  const finish = () => { currentJob = null; $("#go").disabled = false; $("#stop").style.display = "none";
+    document.querySelectorAll(".pg.run").forEach(el=>el.className="pg done");
     if (!results.length && !$("#status").textContent.startsWith("Error") && !$("#status").textContent.startsWith("⏹")) {
-      $("#empty").style.display = "block"; $("#empty").textContent = "No results found."; }
-  });
-  es.onerror = () => finish();
+      $("#empty").style.display = "block"; $("#empty").textContent = "No results found."; } };
+
+  // Poll for events (proxy/tunnel-safe — no long-lived stream to buffer).
+  let since = 0, misses = 0;
+  async function poll() {
+    if (currentJob !== job_id) return;   // a newer search superseded this one
+    let data;
+    try { data = await (await fetch(`/api/events/${job_id}?since=${since}`)).json(); }
+    catch { if (++misses > 15) { $("#status").textContent = "Connection lost."; finish(); return; }
+            setTimeout(poll, 1000); return; }
+    misses = 0;
+    if (data.events) { for (const e of data.events) handleEvent(e); since = data.next; }
+    if (data.done) { finish(); return; }
+    setTimeout(poll, 700);
+  }
+  poll();
 }
 
 async function stopSearch() {
