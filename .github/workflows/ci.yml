@@ -31,4 +31,5 @@ jobs:
           pip install "pydantic>=2.6" psutil pytest
 
       - name: Run tests
-        run: pytest tests/ -q
+        # `python -m pytest` puts the repo root on sys.path so `import app` works
+        run: python -m pytest tests/ -q
