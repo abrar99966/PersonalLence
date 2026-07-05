@@ -67,14 +67,15 @@ def test_username_from_email():
 # ---------------- parsers ----------------
 
 def test_sherlock_regex():
-    out = "[+] GitHub: https://github.com/x\n[+] Twitter: https://twitter.com/x\n[-] Nope: https://n/x"
-    hits = _HIT.findall(out)
+    # engines now match per streamed line
+    lines = ["[+] GitHub: https://github.com/x", "[+] Twitter: https://twitter.com/x", "[-] Nope: https://n/x"]
+    hits = [m.groups() for m in (_HIT.match(l) for l in lines) if m]
     assert len(hits) == 2
     assert hits[0][0].strip() == "GitHub"
 
 def test_holehe_regex_filters_non_domains():
-    out = "[+] amazon.com\n[+] twitter.com\n[+] Email\n[+] Github"
-    sites = _USED.findall(out)
+    lines = ["[+] amazon.com", "[+] twitter.com", "[+] Email", "[+] Github"]
+    sites = [m.group(1) for m in (_USED.match(l) for l in lines) if m]
     assert "amazon.com" in sites
     assert "twitter.com" in sites
     assert "Email" not in sites   # footer noise must be dropped
@@ -89,7 +90,7 @@ def test_gosearch_found_and_breach():
         "[+] Found 77 compromised passwords for x:\n"
     )
     clean = out.replace("\x1b[32m", "").replace("\x1b[0m", "")
-    hits = [(a.strip(), b) for a, b in _GO_HIT.findall(clean)]
+    hits = [(m.group(1).strip(), m.group(2)) for m in (_GO_HIT.match(l.strip()) for l in clean.splitlines()) if m]
     assert ("GitHub", "https://github.com/x") in hits
     assert not any("↳" in s or "Avatar" in s for s, _ in hits)  # sub-detail excluded
     assert _BREACH.search(out)

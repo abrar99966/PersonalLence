@@ -13,7 +13,7 @@ import re
 import shutil
 
 from ..schema import Finding, InputKind
-from .base import Emit, Engine, run_cmd
+from .base import Emit, Engine, Progress, _noprog, run_cmd
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 _FIELD = {
@@ -45,7 +45,8 @@ class PhoneInfoga(Engine):
         # Docker fallback (honors "run phoneinfoga via Docker")
         return ["docker", "run", "--rm", "sundowndev/phoneinfoga", "scan", "-n", target]
 
-    async def run(self, target: str, kind: InputKind, emit: Emit) -> list[Finding]:
+    async def run(self, target: str, kind: InputKind, emit: Emit,
+                  progress: Progress = _noprog) -> list[Finding]:
         rc, stdout, stderr = await run_cmd(self._build_cmd(target), timeout=180)
         blob = _ANSI.sub("", stdout + "\n" + stderr)
 
@@ -64,4 +65,5 @@ class PhoneInfoga(Engine):
             extra=extra or {"note": "no data returned", "raw": blob[:500]},
         )
         await emit(f)
+        await progress({"found": 1 if extra else 0})
         return [f]

@@ -74,8 +74,14 @@ async def _run_wave(target: str, kind: InputKind, emit, sink: EventSink) -> None
 
 async def _run_engine(engine, target, kind, emit, sink: EventSink) -> None:
     await sink({"type": "engine_start", "engine": engine.name, "target": target})
+
+    async def progress(evt: dict) -> None:
+        await sink({"type": "engine_progress", "engine": engine.name, "target": target, **evt})
+
     try:
-        found = await engine.run(target, kind, emit)
+        found = await engine.run(target, kind, emit, progress)
         await sink({"type": "engine_done", "engine": engine.name, "count": len(found)})
+    except asyncio.CancelledError:
+        raise
     except Exception as e:  # engine must never take the whole run down
         await sink({"type": "engine_error", "engine": engine.name, "error": str(e)})

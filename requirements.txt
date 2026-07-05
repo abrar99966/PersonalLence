@@ -1,6 +1,7 @@
 fastapi>=0.110
 uvicorn[standard]>=0.29
 pydantic>=2.6
+psutil>=5.9         # reliable subprocess-tree kill on cancel
 # OSINT engines (installed as CLI tools, called via subprocess)
 sherlock-project
 maigret

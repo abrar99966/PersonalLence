@@ -21,6 +21,21 @@
   button:disabled { opacity:.5; cursor:default; }
   button.ghost { background:transparent; border:1px solid var(--border); color:var(--fg); }
   button.warn { background:var(--orange); }
+  button.danger { background:var(--err); }
+  /* live per-engine progress */
+  #progress { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+  #progress:empty { margin:0; }
+  .pg { flex:1 1 150px; min-width:140px; background:var(--panel); border:1px solid var(--border);
+        border-radius:8px; padding:7px 10px; }
+  .pg .pg-top { display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px; }
+  .pg .pg-name { font-weight:600; } .pg .pg-cnt { color:var(--muted); }
+  .pg .pg-bar { height:4px; border-radius:3px; background:#21262d; overflow:hidden; position:relative; }
+  .pg .pg-fill { position:absolute; inset:0; border-radius:3px; }
+  .pg.run .pg-fill { width:35%; animation:sweep 1.1s ease-in-out infinite; }
+  .pg.done .pg-fill { width:100%; background:var(--ok)!important; }
+  .pg.err .pg-fill { width:100%; background:var(--err)!important; }
+  .pg.err .pg-cnt { color:var(--err); }
+  @keyframes sweep { 0%{left:-35%} 100%{left:100%} }
   .bar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:16px; color:var(--muted); font-size:13px; }
   .pill { padding:2px 8px; border:1px solid var(--border); border-radius:999px; }
   .pill.on { color:var(--ok); border-color:var(--ok); }
@@ -108,8 +123,11 @@
   <div class="search">
     <input id="q" type="text" placeholder="username, email, +91 phone, or full name" autofocus />
     <button id="go">Search</button>
+    <button id="stop" class="danger" style="display:none">■ Stop</button>
+    <button id="mapBtn" class="ghost" style="display:none">🗺 Map</button>
     <button id="export" class="ghost" disabled>Export JSON</button>
   </div>
+  <div id="progress"></div>
   <div class="bar" id="engines"></div>
   <div class="galaxy-wrap" id="galaxyWrap" style="display:none">
     <canvas id="galaxy"></canvas>
@@ -151,6 +169,7 @@ const $ = s => document.querySelector(s);
 let results = [];
 let detectedKind = null;
 let exploreFree = false;
+let currentJob = null;
 
 /* ---------------- Constellation map (premium) ---------------- */
 const Galaxy = (() => {
@@ -426,39 +445,65 @@ async function run() {
   if (!q) return;
   results = []; $("#rows").innerHTML = ""; $("#export").disabled = true;
   $("#actions").style.display = "none"; $("#selall").checked = false; refreshRemoveBtn();
-  $("#explore").innerHTML = ""; detectedKind = null;
+  $("#explore").innerHTML = ""; detectedKind = null; $("#progress").innerHTML = "";
   $("#empty").style.display = "none";
-  $("#galaxyWrap").style.display = "block"; Galaxy.reset(q);
-  $("#go").disabled = true;
+  $("#galaxyWrap").style.display = "block"; $("#mapBtn").style.display = "none"; Galaxy.reset(q);
+  $("#go").disabled = true; $("#stop").style.display = "inline-block";
   $("#status").innerHTML = `<span class="spin"></span> submitting…`;
 
   const { job_id } = await (await fetch("/api/search", {
     method:"POST", headers:{"Content-Type":"application/json"},
     body: JSON.stringify({ query: q })
   })).json();
+  currentJob = job_id;
 
   const active = new Set();
   const showActive = () => {
-    if (!active.size) return;
+    if (!active.size) { if ($("#status").querySelector(".spin")) $("#status").innerHTML = `<span class="spin"></span> finishing…`; return; }
     $("#status").innerHTML = `<span class="spin"></span> ${active.size} engine${active.size>1?'s':''} scanning in parallel: <b>${[...active].join(", ")}</b>`;
   };
+  const pgId = (eng,tgt) => "pg_" + (eng+tgt).replace(/[^a-z0-9]/gi,"");
+  function pgRow(eng, tgt) {
+    const id = pgId(eng,tgt); let el = document.getElementById(id);
+    if (!el) {
+      el = document.createElement("div"); el.id = id; el.className = "pg run";
+      const col = ({maigret:"#7c9cff",sherlock:"#2f81f7",gosearch:"#3fb950",holehe:"#d29922",phoneinfoga:"#56d4dd"})[eng]||"#8b949e";
+      el.innerHTML = `<div class="pg-top"><span class="pg-name" style="color:${col}">${esc(eng)}</span><span class="pg-cnt">0</span></div>`
+        + `<div class="pg-bar"><div class="pg-fill" style="background:${col}"></div></div>`;
+      el.title = "target: " + tgt;
+      $("#progress").appendChild(el);
+    }
+    return el;
+  }
   const es = new EventSource(`/api/stream/${job_id}`);
   es.onmessage = ev => {
     const e = JSON.parse(ev.data);
     if (e.type === "detected") { detectedKind = e.kind; $("#status").innerHTML = `<span class="spin"></span> detected <b>${e.kind}</b> — mapping the galaxy…`; }
-    else if (e.type === "engine_start") { Galaxy.addEngine(e.engine); active.add(e.engine); showActive(); }
-    else if (e.type === "engine_done" || e.type === "engine_error") { active.delete(e.engine); showActive(); }
+    else if (e.type === "engine_start") { Galaxy.addEngine(e.engine); active.add(e.engine); pgRow(e.engine, e.target); showActive(); }
+    else if (e.type === "engine_progress") { const el = pgRow(e.engine, e.target); el.querySelector(".pg-cnt").textContent = (e.found ?? 0) + " found"; }
+    else if (e.type === "engine_done") { active.delete(e.engine); const el=pgRow(e.engine,e.target); el.className="pg done"; el.querySelector(".pg-cnt").textContent=e.count+" found"; showActive(); }
+    else if (e.type === "engine_error") { active.delete(e.engine); const el=pgRow(e.engine,e.target); el.className="pg err"; el.querySelector(".pg-cnt").textContent="error"; showActive(); }
     else if (e.type === "engine_skip") { /* silent */ }
-    else if (e.type === "pivot") { /* handled by galaxy hubs */ }
+    else if (e.type === "pivot") { /* galaxy hubs handle it */ }
     else if (e.type === "finding") { addRow(e.finding); Galaxy.addFinding(e.finding); }
     else if (e.type === "done") { active.clear(); $("#status").textContent = `Done — ${e.count} unique results.`; loadExplore(); }
+    else if (e.type === "cancelled") { active.clear(); document.querySelectorAll(".pg.run").forEach(el=>el.className="pg err"); $("#status").textContent = `⏹ Search stopped — ${results.length} results kept.`; if (detectedKind) loadExplore(); }
     else if (e.type === "fatal") { $("#status").textContent = `Error: ${e.error}`; }
   };
-  es.addEventListener("end", () => { es.close(); $("#go").disabled = false;
-    if (!results.length && !$("#status").textContent.startsWith("Error")) {
+  const finish = () => { es.close(); currentJob = null; $("#go").disabled = false; $("#stop").style.display = "none";
+    document.querySelectorAll(".pg.run").forEach(el=>el.className="pg done"); };
+  es.addEventListener("end", () => { finish();
+    if (!results.length && !$("#status").textContent.startsWith("Error") && !$("#status").textContent.startsWith("⏹")) {
       $("#empty").style.display = "block"; $("#empty").textContent = "No results found."; }
   });
-  es.onerror = () => { es.close(); $("#go").disabled = false; };
+  es.onerror = () => finish();
+}
+
+async function stopSearch() {
+  if (!currentJob) return;
+  $("#stop").disabled = true;
+  try { await fetch(`/api/cancel/${currentJob}`, { method:"POST" }); } catch {}
+  $("#stop").disabled = false;
 }
 
 function esc(s) { return String(s??"").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -537,7 +582,9 @@ $("#export").onclick = () => {
 };
 $("#go").onclick = run;
 $("#q").addEventListener("keydown", e => { if (e.key === "Enter") run(); });
-$("#galaxyToggle").onclick = () => { $("#galaxyWrap").style.display = "none"; };
+$("#galaxyToggle").onclick = () => { $("#galaxyWrap").style.display = "none"; $("#mapBtn").style.display = "inline-block"; };
+$("#mapBtn").onclick = () => { $("#galaxyWrap").style.display = "block"; $("#mapBtn").style.display = "none"; };
+$("#stop").onclick = stopSearch;
 loadEngines();
 </script>
 </body>

@@ -7,7 +7,7 @@ import os
 import tempfile
 
 from ..schema import Finding, InputKind
-from .base import Emit, Engine, run_cmd
+from .base import Emit, Engine, Progress, _noprog, run_cmd
 
 
 class Maigret(Engine):
@@ -15,19 +15,23 @@ class Maigret(Engine):
     binary = "maigret"
     accepts = (InputKind.username,)
 
-    async def run(self, target: str, kind: InputKind, emit: Emit) -> list[Finding]:
+    async def run(self, target: str, kind: InputKind, emit: Emit,
+                  progress: Progress = _noprog) -> list[Finding]:
+        # maigret writes results to a JSON file (no live stdout of hits), so its
+        # findings necessarily arrive as a batch when the scan completes.
         findings: list[Finding] = []
         with tempfile.TemporaryDirectory(prefix="maigret_") as out:
             cmd = [
                 self.exe(), target,
                 "--no-progressbar", "--no-color",
-                "--timeout", "30",
+                "--timeout", "20",
                 "-J", "simple",          # write simple json report
                 "-fo", out,
             ]
-            rc, stdout, stderr = await run_cmd(cmd, timeout=300)
+            await run_cmd(cmd, timeout=300)
             for path in glob.glob(os.path.join(out, "**", "*.json"), recursive=True):
                 findings += await self._parse_report(path, target, emit)
+        await progress({"found": len(findings)})
         return findings
 
     async def _parse_report(self, path: str, target: str, emit: Emit) -> list[Finding]:

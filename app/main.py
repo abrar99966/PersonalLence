@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 from .dispatcher import is_safe
 from .engines import ALL_ENGINES
+from .engines.base import current_job, kill_job
 from .framework import suggest as framework_suggest
 from .orchestrator import orchestrate
 from .removal import build_removal_plan
@@ -35,7 +36,7 @@ app = FastAPI(title="Parallax", version="1.0", lifespan=lifespan)
 
 # limits — this is a local recon tool, but keep it from eating itself
 MAX_JOBS = 50            # reject new work past this many live jobs
-MAX_CONCURRENT = 4       # heavy engines (sherlock/maigret) actually running at once
+MAX_CONCURRENT = 8       # concurrent search jobs (each fans out to all its engines)
 JOB_TTL = 600            # seconds an unconsumed job may linger before reaping
 QUEUE_MAX = 5000         # bound per-job queue so a stuck consumer can't balloon memory
 
@@ -104,11 +105,12 @@ async def search(req: SearchRequest) -> dict:
             pass
 
     async def worker() -> None:
+        current_job.set(job_id)   # so run_cmd can register this job's subprocesses
         try:
             async with _SEM:  # cap concurrent heavy scans
                 await orchestrate(req.query, req.kind, req.pivot, sink)
         except asyncio.CancelledError:
-            raise
+            await sink({"type": "cancelled"})   # user pressed Stop
         except Exception as e:
             await sink({"type": "fatal", "error": str(e)})
         finally:
@@ -116,6 +118,18 @@ async def search(req: SearchRequest) -> dict:
 
     job.task = asyncio.create_task(worker())
     return {"job_id": job_id}
+
+
+@app.post("/api/cancel/{job_id}")
+async def cancel(job_id: str) -> dict:
+    """Stop an in-flight search: cancel its task (which kills the subprocesses)."""
+    job = _JOBS.get(job_id)
+    if job is None:
+        raise HTTPException(404, "unknown job")
+    killed = kill_job(job_id)     # kill subprocesses immediately (don't wait for unwinding)
+    if job.task and not job.task.done():
+        job.task.cancel()
+    return {"cancelled": job_id, "killed": killed}
 
 
 @app.get("/api/explore/{kind}")
