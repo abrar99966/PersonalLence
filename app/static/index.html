@@ -40,6 +40,20 @@
   tr.breach .site-badge { color:var(--err); font-weight:600; }
   tr.phone td { background:rgba(47,129,247,.08); }
   .empty { color:var(--muted); padding:40px; text-align:center; }
+  /* explore further */
+  #explore { margin-top:24px; }
+  #explore h3 { font-size:16px; margin:0 0 4px; cursor:pointer; }
+  #explore .sub { color:var(--muted); font-size:12px; margin-bottom:12px; }
+  .exp-cat { font-size:13px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em;
+             margin:14px 0 6px; border-bottom:1px solid var(--border); padding-bottom:4px; }
+  .exp-item { padding:6px 0; }
+  .exp-item .nm { font-weight:600; }
+  .exp-item .nm a { color:var(--accent); text-decoration:none; }
+  .exp-item .desc { color:var(--muted); font-size:13px; }
+  .price { font-size:10px; padding:1px 6px; border-radius:999px; border:1px solid var(--border); margin-left:6px; }
+  .price.free { color:var(--ok); border-color:var(--ok); }
+  .price.paid, .price.freemium { color:var(--warn); border-color:var(--warn); }
+  .reg { font-size:10px; color:var(--muted); margin-left:4px; }
   .spin { display:inline-block; width:12px; height:12px; border:2px solid var(--border);
           border-top-color:var(--accent); border-radius:50%; animation:s .7s linear infinite; }
   @keyframes s { to { transform:rotate(360deg); } }
@@ -88,6 +102,7 @@
     <tbody id="rows"></tbody>
   </table>
   <div class="empty" id="empty">Enter an identifier and hit Search.</div>
+  <div id="explore"></div>
 </main>
 
 <div class="overlay" id="overlay">
@@ -102,6 +117,8 @@
 <script>
 const $ = s => document.querySelector(s);
 let results = [];
+let detectedKind = null;
+let exploreFree = false;
 
 async function loadEngines() {
   const es = await (await fetch("/api/engines")).json();
@@ -147,6 +164,7 @@ async function run() {
   if (!q) return;
   results = []; $("#rows").innerHTML = ""; $("#export").disabled = true;
   $("#actions").style.display = "none"; $("#selall").checked = false; refreshRemoveBtn();
+  $("#explore").innerHTML = ""; detectedKind = null;
   $("#empty").style.display = "none";
   $("#go").disabled = true;
   $("#status").innerHTML = `<span class="spin"></span> submitting…`;
@@ -159,12 +177,12 @@ async function run() {
   const es = new EventSource(`/api/stream/${job_id}`);
   es.onmessage = ev => {
     const e = JSON.parse(ev.data);
-    if (e.type === "detected") $("#status").innerHTML = `<span class="spin"></span> detected <b>${e.kind}</b> — running engines…`;
+    if (e.type === "detected") { detectedKind = e.kind; $("#status").innerHTML = `<span class="spin"></span> detected <b>${e.kind}</b> — running engines…`; }
     else if (e.type === "engine_start") $("#status").innerHTML = `<span class="spin"></span> ${e.engine} scanning <b>${e.target}</b>…`;
     else if (e.type === "engine_skip") $("#status").innerHTML += ` · ${e.engine} skipped (${e.reason})`;
     else if (e.type === "pivot") $("#status").innerHTML = `<span class="spin"></span> pivot → <b>${e.handle}</b>`;
     else if (e.type === "finding") addRow(e.finding);
-    else if (e.type === "done") { $("#status").textContent = `Done — ${e.count} unique results.`; }
+    else if (e.type === "done") { $("#status").textContent = `Done — ${e.count} unique results.`; loadExplore(); }
     else if (e.type === "fatal") { $("#status").textContent = `Error: ${e.error}`; }
   };
   es.addEventListener("end", () => { es.close(); $("#go").disabled = false;
@@ -175,6 +193,31 @@ async function run() {
 }
 
 function esc(s) { return String(s??"").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+async function loadExplore() {
+  if (!detectedKind) return;
+  const data = await (await fetch(`/api/explore/${detectedKind}?free_only=${exploreFree}`)).json();
+  const groups = data.groups.map(g => `
+    <div class="exp-cat">${esc(g.category)}</div>
+    ${g.resources.map(r => `
+      <div class="exp-item">
+        <div class="nm"><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.name)} ↗</a>
+          <span class="price ${r.pricing}">${esc(r.pricing)}</span>
+          ${r.registration ? '<span class="reg">· signup</span>' : ''}
+          ${r.dork ? '<span class="reg">· google-dork</span>' : ''}</div>
+        <div class="desc">${esc(r.bestFor || r.description)}</div>
+      </div>`).join("")}`).join("");
+  $("#explore").innerHTML = `
+    <h3 id="expHead">🧭 Explore Further — ${data.count} curated OSINT tools for a ${esc(detectedKind)} ▾</h3>
+    <div class="sub">
+      Manual resources from the <a href="https://osintframework.com" target="_blank" rel="noopener">OSINT Framework</a>
+      — not auto-run, open to investigate further.
+      <label style="margin-left:10px"><input type="checkbox" id="expFree" ${exploreFree?'checked':''}/> free & no-signup only</label>
+    </div>
+    <div id="expBody">${groups}</div>`;
+  $("#expHead").onclick = () => { const b=$("#expBody"); b.style.display = b.style.display==='none'?'block':'none'; };
+  $("#expFree").onchange = e => { exploreFree = e.target.checked; loadExplore(); };
+}
 
 function mailto(em) {
   return `mailto:${encodeURIComponent(em.to)}?subject=${encodeURIComponent(em.subject)}&body=${encodeURIComponent(em.body)}`;

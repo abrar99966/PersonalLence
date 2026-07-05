@@ -17,6 +17,7 @@ from app.engines.phoneinfoga import PhoneInfoga, _FIELD
 from app.engines.sherlock import _HIT
 from app.removal import build_removal_plan, plan_for_finding, registrable_domain
 from app.schema import InputKind
+from app.framework import suggest as framework_suggest
 from app.siteinfo import describe
 
 
@@ -110,6 +111,21 @@ def test_phoneinfoga_available_via_docker(monkeypatch):
     monkeypatch.setattr(mod.shutil, "which", lambda n: "/docker")  # docker present
     assert eng.available() is True
     assert eng._build_cmd("+1")[0] == "docker"
+
+def test_framework_suggest():
+    for kind in ("username", "email", "phone", "name"):
+        r = framework_suggest(kind)
+        assert r["kind"] == kind
+        assert r["count"] > 0
+        # every returned resource is tagged for this kind
+        for g in r["groups"]:
+            for res in g["resources"]:
+                assert kind in res["kinds"]
+    # free_only really filters out paid / signup resources
+    free = framework_suggest("username", free_only=True)
+    for g in free["groups"]:
+        for res in g["resources"]:
+            assert res["pricing"] == "free" and not res["registration"]
 
 def test_describe_sites():
     assert "Code hosting" in describe("GitHub", "https://github.com/x")

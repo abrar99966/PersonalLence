@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 from .dispatcher import is_safe
 from .engines import ALL_ENGINES
+from .framework import suggest as framework_suggest
 from .orchestrator import orchestrate
 from .removal import build_removal_plan
 from .schema import RemovalRequest, SearchRequest
@@ -115,6 +116,14 @@ async def search(req: SearchRequest) -> dict:
 
     job.task = asyncio.create_task(worker())
     return {"job_id": job_id}
+
+
+@app.get("/api/explore/{kind}")
+async def explore(kind: str, free_only: bool = False) -> dict:
+    """Curated OSINT-Framework resources to manually pursue, by input kind."""
+    if kind not in ("username", "email", "phone", "name"):
+        raise HTTPException(400, "kind must be username|email|phone|name")
+    return framework_suggest(kind, free_only=free_only)
 
 
 @app.post("/api/removal")
