@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
             await reaper
 
 
-app = FastAPI(title="OSINT Finder", version="1.0", lifespan=lifespan)
+app = FastAPI(title="Parallax", version="1.0", lifespan=lifespan)
 
 # limits — this is a local recon tool, but keep it from eating itself
 MAX_JOBS = 50            # reject new work past this many live jobs

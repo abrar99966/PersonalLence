@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>OSINT Finder</title>
+<title>Parallax — digital footprint finder</title>
 <style>
   :root { --bg:#0d1117; --panel:#161b22; --border:#30363d; --fg:#e6edf3; --muted:#8b949e;
           --accent:#2f81f7; --ok:#3fb950; --warn:#d29922; --err:#f85149; --orange:#db6d28; }
@@ -57,6 +57,19 @@
   .spin { display:inline-block; width:12px; height:12px; border:2px solid var(--border);
           border-top-color:var(--accent); border-radius:50%; animation:s .7s linear infinite; }
   @keyframes s { to { transform:rotate(360deg); } }
+  /* constellation map */
+  .galaxy-wrap { position:relative; margin-bottom:16px; border:1px solid var(--border);
+                 border-radius:12px; overflow:hidden;
+                 background:radial-gradient(ellipse at 50% 40%, #10182b 0%, #080b14 70%, #05070d 100%); }
+  #galaxy { display:block; width:100%; height:360px; }
+  .galaxy-hud { position:absolute; top:10px; left:12px; font-size:12px; color:var(--muted);
+                pointer-events:none; text-shadow:0 0 8px #000; }
+  .galaxy-hud b { color:var(--fg); }
+  .galaxy-toggle { position:absolute; top:8px; right:10px; }
+  .tip { position:fixed; z-index:20; pointer-events:none; background:rgba(13,17,23,.95);
+         border:1px solid var(--border); border-radius:8px; padding:6px 10px; font-size:12px;
+         color:var(--fg); max-width:260px; display:none; box-shadow:0 4px 20px rgba(0,0,0,.5); }
+  .tip .t-site { font-weight:600; } .tip .t-sub { color:var(--muted); }
   /* removal modal */
   .overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; z-index:10;
              overflow:auto; padding:40px 16px; }
@@ -82,7 +95,7 @@
 </head>
 <body>
 <header>
-  <h1>OSINT Finder <span>— username · email · phone · name</span></h1>
+  <h1>✦ Parallax <span>— triangulate a digital footprint · username · email · phone · name</span></h1>
 </header>
 <main>
   <div class="search">
@@ -91,6 +104,11 @@
     <button id="export" class="ghost" disabled>Export JSON</button>
   </div>
   <div class="bar" id="engines"></div>
+  <div class="galaxy-wrap" id="galaxyWrap" style="display:none">
+    <canvas id="galaxy"></canvas>
+    <div class="galaxy-hud" id="galaxyHud"></div>
+    <button class="ghost galaxy-toggle" id="galaxyToggle">Hide map</button>
+  </div>
   <div class="status" id="status"></div>
   <div class="actions" id="actions" style="display:none">
     <label><input type="checkbox" id="selall" /> select all accounts</label>
@@ -104,6 +122,7 @@
   <div class="empty" id="empty">Enter an identifier and hit Search.</div>
   <div id="explore"></div>
 </main>
+<div class="tip" id="tip"></div>
 
 <div class="overlay" id="overlay">
   <div class="modal">
@@ -119,6 +138,152 @@ const $ = s => document.querySelector(s);
 let results = [];
 let detectedKind = null;
 let exploreFree = false;
+
+/* ---------------- Constellation map ---------------- */
+const Galaxy = (() => {
+  const cv = $("#galaxy"), ctx = cv.getContext("2d");
+  let W = 0, H = 0, cx = 0, cy = 0, dpr = 1;
+  let bg = [];                 // background drifting stars
+  let hubs = new Map();        // engine name -> hub node
+  let nodes = [];              // finding nodes
+  let center = null;           // query node
+  let rot = 0, raf = null, running = false;
+  const ENGINE_COLORS = { maigret:"#7c9cff", sherlock:"#2f81f7", gosearch:"#3fb950",
+                          holehe:"#d29922", phoneinfoga:"#56d4dd" };
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = cv.clientWidth; H = cv.clientHeight; cx = W/2; cy = H/2;
+    cv.width = W*dpr; cv.height = H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  function seedBg() {
+    bg = Array.from({length: 150}, (_,i) => ({
+      x: Math.random()*W, y: Math.random()*H, r: Math.random()*1.4+0.2,
+      tw: Math.random()*Math.PI*2, sp: 0.002+Math.random()*0.006,
+      dx: (Math.random()-0.5)*0.05, dy:(Math.random()-0.5)*0.05 }));
+  }
+  function reset(query) {
+    resize(); seedBg(); hubs.clear(); nodes = []; rot = 0;
+    center = { label: query, a: 0, r: 0, alpha: 0, tAlpha: 1, pop: 0 };
+    if (!running) { running = true; loop(); }
+  }
+  function hubFor(name) {
+    if (hubs.has(name)) return hubs.get(name);
+    const idx = hubs.size;
+    const hub = { name, label: name, a: 0, baseA: 0, r: Math.min(W,H)*0.24,
+                  color: ENGINE_COLORS[name]||"#8b949e", alpha:0, tAlpha:1, pop:0 };
+    hubs.set(name, hub);
+    // redistribute hub angles evenly as new ones arrive
+    let i = 0, n = hubs.size;
+    for (const h of hubs.values()) { h.baseA = (i/n)*Math.PI*2 - Math.PI/2; i++; }
+    return hub;
+  }
+  function addEngine(name) { hubFor(name); }
+  function addFinding(f) {
+    const hub = f.source ? hubFor(f.source) : null;
+    const band = Math.min(W,H)*0.30 + Math.random()*Math.min(W,H)*0.16;
+    const spread = 0.55;
+    const baseA = (hub ? hub.baseA : Math.random()*Math.PI*2) + (Math.random()-0.5)*spread;
+    nodes.push({
+      f, hub, baseA, r: band, alpha:0, tAlpha:1, pop:0,
+      breach: f.kind === "breach",
+      color: f.kind==="breach" ? "#f85149" : (hub? hub.color : "#8b949e"),
+      rad: f.kind==="breach" ? 4.2 : 2.4, tw: Math.random()*Math.PI*2,
+    });
+    updateHud();
+  }
+  function updateHud() {
+    const b = nodes.filter(n=>n.breach).length;
+    $("#galaxyHud").innerHTML = `<b>${nodes.length}</b> nodes mapped · <b>${hubs.size}</b> engines`
+      + (b?` · <span style="color:#f85149">${b} breach</span>`:``);
+  }
+  function pos(node) { const a = node.baseA + rot; return [cx + Math.cos(a)*node.r, cy + Math.sin(a)*node.r]; }
+
+  function loop() {
+    rot += 0.0009;
+    ctx.clearRect(0,0,W,H);
+    // background stars
+    for (const s of bg) {
+      s.tw += s.sp; s.x=(s.x+s.dx+W)%W; s.y=(s.y+s.dy+H)%H;
+      const a = 0.35 + Math.sin(s.tw)*0.3;
+      ctx.globalAlpha = Math.max(0,a); ctx.fillStyle = "#cdd9ff";
+      ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,7); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    if (!center) { raf = requestAnimationFrame(loop); return; }
+    center.alpha += (center.tAlpha-center.alpha)*0.08;
+    // edges center->hub
+    for (const h of hubs.values()) {
+      h.alpha += (h.tAlpha-h.alpha)*0.08; h.pop += (1-h.pop)*0.06;
+      const [hx,hy] = pos({baseA:h.baseA, r:h.r});
+      const g = ctx.createLinearGradient(cx,cy,hx,hy);
+      g.addColorStop(0, "rgba(120,150,255,0.35)"); g.addColorStop(1, hexA(h.color,0.15));
+      ctx.strokeStyle = g; ctx.lineWidth = 1.1; ctx.globalAlpha = h.alpha;
+      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(hx,hy); ctx.stroke();
+    }
+    // edges hub->finding + finding stars
+    for (const n of nodes) {
+      n.alpha += (n.tAlpha-n.alpha)*0.09; n.pop += (1-n.pop)*0.05; n.tw += 0.05;
+      const [nx,ny] = pos(n);
+      const anchor = n.hub ? pos({baseA:n.hub.baseA, r:n.hub.r}) : [cx,cy];
+      ctx.globalAlpha = n.alpha*0.5; ctx.strokeStyle = hexA(n.color,0.5); ctx.lineWidth = 0.7;
+      ctx.beginPath(); ctx.moveTo(anchor[0],anchor[1]); ctx.lineTo(nx,ny); ctx.stroke();
+      const pulse = n.breach ? (1+Math.sin(n.tw)*0.35) : 1;
+      const rr = n.rad*n.pop*pulse;
+      ctx.globalAlpha = n.alpha;
+      ctx.shadowColor = n.color; ctx.shadowBlur = n.breach?16:8;
+      ctx.fillStyle = n.color; ctx.beginPath(); ctx.arc(nx,ny,rr,0,7); ctx.fill();
+      ctx.shadowBlur = 0;
+      n._sx = nx; n._sy = ny; n._sr = Math.max(rr,6); // hit box
+    }
+    // hubs on top
+    for (const h of hubs.values()) {
+      const [hx,hy] = pos({baseA:h.baseA, r:h.r});
+      ctx.globalAlpha = h.alpha;
+      ctx.shadowColor = h.color; ctx.shadowBlur = 12;
+      ctx.fillStyle = h.color; ctx.beginPath(); ctx.arc(hx,hy,4.5*h.pop,0,7); ctx.fill();
+      ctx.shadowBlur = 0; ctx.globalAlpha = h.alpha*0.9;
+      ctx.fillStyle = "#c9d4ee"; ctx.font = "11px system-ui"; ctx.textAlign="center";
+      ctx.fillText(h.label, hx, hy-9);
+      h._sx=hx; h._sy=hy;
+    }
+    // center query star
+    ctx.globalAlpha = center.alpha;
+    const cr = 6 + Math.sin(rot*6)*1.2;
+    ctx.shadowColor = "#eaf2ff"; ctx.shadowBlur = 22;
+    ctx.fillStyle = "#eaf2ff"; ctx.beginPath(); ctx.arc(cx,cy,cr,0,7); ctx.fill();
+    ctx.shadowBlur=0; ctx.fillStyle="#eaf2ff"; ctx.font="600 12px system-ui"; ctx.textAlign="center";
+    ctx.fillText(center.label, cx, cy+cr+16);
+    ctx.globalAlpha = 1;
+    raf = requestAnimationFrame(loop);
+  }
+  function hexA(hex, a) {
+    const n = parseInt(hex.slice(1),16);
+    return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;
+  }
+  // interaction
+  cv.addEventListener("mousemove", e => {
+    const rect = cv.getBoundingClientRect(), mx=e.clientX-rect.left, my=e.clientY-rect.top;
+    let hit = null;
+    for (const n of nodes) if (n._sx!=null && Math.hypot(n._sx-mx,n._sy-my) <= n._sr+4) { hit=n; break; }
+    const tip = $("#tip");
+    if (hit) {
+      tip.style.display="block"; tip.style.left=(e.clientX+12)+"px"; tip.style.top=(e.clientY+12)+"px";
+      tip.innerHTML = `<div class="t-site">${hit.breach?'⚠ ':''}${escv(hit.f.site)}</div>`
+        + `<div class="t-sub">${escv(hit.f.source)} · ${escv(hit.f.value||'')}</div>`
+        + (hit.f.extra&&(hit.f.extra.about||hit.f.extra.alert)?`<div class="t-sub">${escv(hit.f.extra.about||hit.f.extra.alert)}</div>`:``);
+      cv.style.cursor = hit.f.url ? "pointer":"default";
+    } else { tip.style.display="none"; cv.style.cursor="default"; }
+  });
+  cv.addEventListener("mouseleave", ()=> $("#tip").style.display="none");
+  cv.addEventListener("click", e => {
+    const rect = cv.getBoundingClientRect(), mx=e.clientX-rect.left, my=e.clientY-rect.top;
+    for (const n of nodes) if (n._sx!=null && Math.hypot(n._sx-mx,n._sy-my)<=n._sr+4 && n.f.url) { window.open(n.f.url,"_blank"); break; }
+  });
+  function escv(s){ return String(s??"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  window.addEventListener("resize", () => { if (running) resize(); });
+  return { reset, addEngine, addFinding };
+})();
 
 async function loadEngines() {
   const es = await (await fetch("/api/engines")).json();
@@ -166,6 +331,7 @@ async function run() {
   $("#actions").style.display = "none"; $("#selall").checked = false; refreshRemoveBtn();
   $("#explore").innerHTML = ""; detectedKind = null;
   $("#empty").style.display = "none";
+  $("#galaxyWrap").style.display = "block"; Galaxy.reset(q);
   $("#go").disabled = true;
   $("#status").innerHTML = `<span class="spin"></span> submitting…`;
 
@@ -177,11 +343,11 @@ async function run() {
   const es = new EventSource(`/api/stream/${job_id}`);
   es.onmessage = ev => {
     const e = JSON.parse(ev.data);
-    if (e.type === "detected") { detectedKind = e.kind; $("#status").innerHTML = `<span class="spin"></span> detected <b>${e.kind}</b> — running engines…`; }
-    else if (e.type === "engine_start") $("#status").innerHTML = `<span class="spin"></span> ${e.engine} scanning <b>${e.target}</b>…`;
+    if (e.type === "detected") { detectedKind = e.kind; $("#status").innerHTML = `<span class="spin"></span> detected <b>${e.kind}</b> — mapping the galaxy…`; }
+    else if (e.type === "engine_start") { Galaxy.addEngine(e.engine); $("#status").innerHTML = `<span class="spin"></span> ${e.engine} scanning <b>${e.target}</b>…`; }
     else if (e.type === "engine_skip") $("#status").innerHTML += ` · ${e.engine} skipped (${e.reason})`;
     else if (e.type === "pivot") $("#status").innerHTML = `<span class="spin"></span> pivot → <b>${e.handle}</b>`;
-    else if (e.type === "finding") addRow(e.finding);
+    else if (e.type === "finding") { addRow(e.finding); Galaxy.addFinding(e.finding); }
     else if (e.type === "done") { $("#status").textContent = `Done — ${e.count} unique results.`; loadExplore(); }
     else if (e.type === "fatal") { $("#status").textContent = `Error: ${e.error}`; }
   };
@@ -268,6 +434,12 @@ $("#export").onclick = () => {
 };
 $("#go").onclick = run;
 $("#q").addEventListener("keydown", e => { if (e.key === "Enter") run(); });
+$("#galaxyToggle").onclick = () => {
+  const c = $("#galaxy");
+  const hidden = c.style.display === "none";
+  c.style.display = hidden ? "block" : "none";
+  $("#galaxyToggle").textContent = hidden ? "Hide map" : "Show map";
+};
 loadEngines();
 </script>
 </body>

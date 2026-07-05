@@ -1,4 +1,6 @@
-# OSINT Finder
+# ✦ Parallax
+
+*Triangulate a digital footprint across the galaxy.*
 
 One web UI that fans a single identifier — **username, email, phone, or full name** —
 out to multiple best-in-class OSINT engines, streams results live, correlates them,
