@@ -28,7 +28,7 @@ jobs:
         # tools exercised only at runtime.
         run: |
           python -m pip install --upgrade pip
-          pip install "pydantic>=2.6" psutil pytest
+          pip install "pydantic>=2.6" psutil phonenumbers pytest
 
       - name: Run tests
         # `python -m pytest` puts the repo root on sys.path so `import app` works
