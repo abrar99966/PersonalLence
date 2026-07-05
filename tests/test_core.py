@@ -18,7 +18,6 @@ from app.engines.sherlock import _HIT
 from app.removal import build_removal_plan, plan_for_finding, registrable_domain
 from app.schema import InputKind
 from app.engines.ignorant import _USED as _IG_USED, Ignorant
-from app.engines.socialscan import parse_report as ss_parse
 from app.framework import suggest as framework_suggest
 from app.siteinfo import describe
 
@@ -136,18 +135,6 @@ def test_ignorant_regex_and_split():
     assert used == ["amazon.com", "instagram.com"]   # only [+], drop [x]/[-]
     assert Ignorant()._split("+14152007986") == ("1", "4152007986")
     assert Ignorant()._split("+919876543210") == ("91", "9876543210")
-
-def test_socialscan_parse_report():
-    data = {"ibnaleem": [
-        {"platform": "Twitter", "available": "False", "valid": "True", "success": "True",
-         "link": "https://twitter.com/ibnaleem"},                       # taken -> hit
-        {"platform": "GitHub", "available": "True", "valid": "True", "success": "True"},   # available -> skip
-        {"platform": "Reddit", "available": "False", "valid": "False", "success": "False"},  # error -> skip
-    ]}
-    out = ss_parse(data, "ibnaleem", "socialscan")
-    assert len(out) == 1
-    assert out[0].site == "Twitter"
-    assert out[0].url == "https://twitter.com/ibnaleem"
 
 def test_describe_sites():
     assert "Code hosting" in describe("GitHub", "https://github.com/x")

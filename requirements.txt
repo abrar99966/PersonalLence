@@ -10,7 +10,6 @@ httpx>=0.27         # async HTTP for Authlib
 sherlock-project
 maigret
 holehe
-socialscan            # username+email definitive existence checks
 ignorant              # phone-number registration checks
 phonenumbers          # split a phone into country-code + national (for ignorant)
 # phoneinfoga & gosearch are Go binaries — fetch via scripts/fetch-binaries.ps1

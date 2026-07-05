@@ -17,7 +17,7 @@ normalizes their output into one schema, and pivots discovered identifiers back 
 
 ```
  input ──▶ detect kind ──▶ fan to engines ──▶ normalize ──▶ dedup ──▶ pivot ──▶ report
-             maigret / sherlock / gosearch / socialscan / holehe / ignorant / phoneinfoga
+             maigret / sherlock / gosearch / holehe / ignorant / phoneinfoga
 ```
 
 ## Features
@@ -42,7 +42,6 @@ normalizes their output into one schema, and pivots discovered identifiers back 
 | [maigret](https://github.com/soxoj/maigret)         | username | all ~3000 sites + profile data | `pip` |
 | [sherlock](https://github.com/sherlock-project/sherlock) | username | fast 400+ site confirm | `pip` |
 | [gosearch](https://github.com/ibnaleem/gosearch)    | username | 300+ sites + **breach check** (HudsonRock + ProxyNova) | binary → `./bin` |
-| [socialscan](https://github.com/iojw/socialscan)    | username + email | **definitive** account existence on major platforms | `pip` |
 | [holehe](https://github.com/megadose/holehe)        | email    | which of 120+ sites an email is registered on | `pip` |
 | [ignorant](https://github.com/megadose/ignorant)    | phone    | phone registered on Instagram / Amazon / Snapchat | `pip` |
 | [phoneinfoga](https://github.com/sundowndev/phoneinfoga) | phone | country/carrier + Google dork links | binary → `./bin`, or Docker |
