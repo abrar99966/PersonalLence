@@ -1,0 +1,22 @@
+# Render.com blueprint — connect this repo in the Render dashboard and it will
+# build the Dockerfile and auto-deploy on every push to main.
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: parallax
+    runtime: docker
+    plan: free                 # note: 512MB RAM / 0.1 CPU, spins down when idle
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: GOOGLE_CLIENT_ID       # from Google Cloud Console (set in dashboard)
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET   # set in dashboard (secret)
+        sync: false
+      - key: OAUTH_REDIRECT_URL     # https://<your-domain>/auth/callback
+        sync: false
+      - key: SESSION_SECRET         # Render generates a strong random value
+        generateValue: true
+      - key: ALLOWED_EMAILS         # optional: comma-separated allow-list (blank = any Google account)
+        sync: false

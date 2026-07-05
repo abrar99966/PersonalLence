@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+*.log
+.git/
+bin/*.exe
+assets/
+tests/
+scratch*
+mtest/
+*.txt
+!requirements.txt

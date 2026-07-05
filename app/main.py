@@ -34,6 +34,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Parallax", version="1.0", lifespan=lifespan)
 
+# optional Google sign-in gate (active only when GOOGLE_CLIENT_ID is set)
+from .auth import setup_auth  # noqa: E402
+setup_auth(app)
+
 # limits — this is a local recon tool, but keep it from eating itself
 MAX_JOBS = 50            # reject new work past this many live jobs
 MAX_CONCURRENT = 8       # concurrent search jobs (each fans out to all its engines)

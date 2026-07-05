@@ -2,6 +2,10 @@ fastapi>=0.110
 uvicorn[standard]>=0.29
 pydantic>=2.6
 psutil>=5.9         # reliable subprocess-tree kill on cancel
+# --- cloud deploy: optional Google sign-in gate ---
+authlib>=1.3        # Google OAuth
+itsdangerous>=2.1   # signed session cookies (SessionMiddleware)
+httpx>=0.27         # async HTTP for Authlib
 # OSINT engines (installed as CLI tools, called via subprocess)
 sherlock-project
 maigret

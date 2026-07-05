@@ -47,6 +47,12 @@ Both are Go binaries. Fetch prebuilt Windows releases into `./bin`:
 in `./bin`/PATH but `docker` is present, the engine automatically runs
 `docker run --rm sundowndev/phoneinfoga scan -n <number>`.
 
+## Deploy (cloud)
+
+Runs open locally; add Google sign-in and host it on Render + Cloudflare —
+see **[DEPLOY.md](DEPLOY.md)**. (Cloudflare Pages/Workers can't run it — it's a
+Python server with subprocess engines; it needs a container host.)
+
 ## Correlation / pivot
 
 - **email** → the local part (`ravi.kumar@x.com` → `ravi.kumar`) is re-run through username engines.
