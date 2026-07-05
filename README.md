@@ -1,6 +1,18 @@
+---
+title: Parallax
+emoji: ✦
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+app_port: 8000
+pinned: false
+license: mit
+---
+
 # ✦ Parallax
 
 *Triangulate a digital footprint across the galaxy.*
+
 
 <p align="center">
   <img src="assets/parallax-demo.gif" alt="Parallax constellation search — the query at the center, engines as star-hubs, findings streaming in as connected nodes, breaches pulsing red" width="760" />

@@ -11,7 +11,35 @@ are set — so you can deploy first and turn on Google sign-in after.
 
 ---
 
-## Phase 1 — get it live on Render (free, GitHub auto-deploy)
+## Option A — Hugging Face Spaces (free, no credit card) ✅ recommended
+
+Gives a public `https://<you>-parallax.hf.space` URL. The `README.md` frontmatter
+already configures it (Docker SDK, port 8000).
+
+1. <https://huggingface.co> → sign up (free, no card).
+2. **Settings → Access Tokens → New token** → type **Write** → copy it.
+3. <https://huggingface.co/new-space> → **Space name** `parallax`, **License** MIT,
+   **SDK: Docker**, **Template: Blank**, **Hardware: CPU basic (free)**, **Public** → Create.
+4. Push this repo into the Space (from the project folder):
+   ```powershell
+   git remote add hf https://huggingface.co/spaces/<YOUR-HF-USERNAME>/parallax
+   git push hf main
+   ```
+   When prompted: username = your HF username, password = the **Write token** from step 2.
+5. HF builds the Dockerfile (~10 min — watch the Space's **Logs** tab). When it shows
+   **Running**, open `https://<YOUR-HF-USERNAME>-parallax.hf.space`.
+
+**Google sign-in (optional):** in the Space → **Settings → Variables and secrets**, add
+`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OAUTH_REDIRECT_URL`
+(`https://<you>-parallax.hf.space/auth/callback`). Register that same callback in Google
+(see Phase 2 below). Add `SESSION_SECRET` (any long random string). Restart the Space.
+
+> Free CPU tier sleeps after ~48 h idle and wakes on the next visit. maigret runs in
+> Fast mode unless you add `MAIGRET_DEEP=true` as a Space variable.
+
+---
+
+## Option B — Render (free, GitHub auto-deploy)
 
 1. <https://render.com> → sign up (free) → **New → Blueprint**.
 2. Connect GitHub and pick **`abrar99966/PersonalLence`**. Render reads
