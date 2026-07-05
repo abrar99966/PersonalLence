@@ -34,6 +34,8 @@
   td a { color:var(--accent); text-decoration:none; word-break:break-all; }
   .src { font-size:12px; color:var(--muted); }
   .tag { display:inline-block; padding:1px 6px; border-radius:4px; font-size:11px; background:#21262d; color:var(--muted); }
+  .about { font-size:13px; color:var(--fg); }
+  tr.breach .about { color:var(--err); font-weight:600; }
   tr.breach td { background:rgba(248,81,73,.12); }
   tr.breach .site-badge { color:var(--err); font-weight:600; }
   tr.phone td { background:rgba(47,129,247,.08); }
@@ -121,8 +123,11 @@ function addRow(f) {
   const idx = results.length;
   results.push(f);
   const site = f.url ? `<a href="${f.url}" target="_blank" rel="noopener">${f.site}</a>` : f.site;
-  const info = Object.entries(f.extra||{}).slice(0,4)
+  const extra = { ...(f.extra||{}) };
+  const about = extra.about || extra.alert; delete extra.about; delete extra.alert;
+  const tags = Object.entries(extra).slice(0,3)
     .map(([k,v]) => `<span class="tag">${k}: ${String(v).slice(0,40)}</span>`).join(" ");
+  const info = (about ? `<span class="about">${about}</span> ` : "") + tags;
   const tr = document.createElement("tr");
   if (f.kind === "breach") tr.className = "breach";
   else if (f.kind === "phone") tr.className = "phone";

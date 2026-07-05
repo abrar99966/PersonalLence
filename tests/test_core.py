@@ -17,6 +17,7 @@ from app.engines.phoneinfoga import PhoneInfoga, _FIELD
 from app.engines.sherlock import _HIT
 from app.removal import build_removal_plan, plan_for_finding, registrable_domain
 from app.schema import InputKind
+from app.siteinfo import describe
 
 
 # ---------------- detection ----------------
@@ -109,6 +110,12 @@ def test_phoneinfoga_available_via_docker(monkeypatch):
     monkeypatch.setattr(mod.shutil, "which", lambda n: "/docker")  # docker present
     assert eng.available() is True
     assert eng._build_cmd("+1")[0] == "docker"
+
+def test_describe_sites():
+    assert "Code hosting" in describe("GitHub", "https://github.com/x")
+    assert describe("Docker Hub", "https://hub.docker.com/u/x")          # subdomain match
+    assert "chess" in describe("Chess", "https://www.chess.com/member/x").lower()
+    assert describe("Nonexistent", "https://nope-xyz.qqq/x") is None
 
 def test_registrable_domain():
     assert registrable_domain("https://www.instagram.com/x", "Instagram") == "instagram.com"

@@ -11,6 +11,7 @@ from .dispatcher import (
 )
 from .engines import ALL_ENGINES
 from .schema import Finding, InputKind
+from .siteinfo import describe
 
 # event pushed to the live stream: {"type": ..., ...}
 Event = dict
@@ -29,6 +30,11 @@ async def orchestrate(query: str, kind: InputKind | None, pivot: bool, sink: Eve
         if k in seen:
             return
         seen.add(k)
+        # enrich: give account findings a 'what is this site' blurb if they have none
+        if f.kind == "account" and "about" not in f.extra:
+            desc = describe(f.site, f.url)
+            if desc:
+                f.extra["about"] = desc
         results.append(f)
         await sink({"type": "finding", "finding": f.model_dump()})
 
