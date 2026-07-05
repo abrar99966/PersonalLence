@@ -129,6 +129,15 @@ def test_framework_suggest():
         for res in g["resources"]:
             assert res["pricing"] == "free" and not res["registration"]
 
+def test_security_headers_and_rate_limit():
+    from app.security import SECURITY_HEADERS, rate_limited
+    for h in ("Content-Security-Policy", "Strict-Transport-Security", "X-Frame-Options",
+              "X-Content-Type-Options", "Referrer-Policy", "Permissions-Policy"):
+        assert h in SECURITY_HEADERS
+    ip = "203.0.113.7"                       # isolated test IP
+    assert not any(rate_limited(ip, limit=3, window=60) for _ in range(3))
+    assert rate_limited(ip, limit=3, window=60)   # 4th within window is blocked
+
 def test_hudsonrock_available_and_kind():
     from app.engines.hudsonrock import HudsonRock
     e = HudsonRock()

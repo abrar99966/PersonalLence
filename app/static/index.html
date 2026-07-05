@@ -378,7 +378,7 @@ const Galaxy = (() => {
   cv.addEventListener("pointerup", e => {
     cv.classList.remove("drag");
     if (drag && moved<5){ const r=cv.getBoundingClientRect(); const n=pick(e.clientX-r.left,e.clientY-r.top);
-      if (n && n.f.url) window.open(n.f.url,"_blank"); }
+      const u = n && safeUrl(n.f.url); if (u) window.open(u,"_blank","noopener,noreferrer"); }
     drag=null;
   });
   cv.addEventListener("pointermove", e => {
@@ -430,15 +430,20 @@ function refreshRemoveBtn() {
   $("#removeBtn").disabled = n === 0;
 }
 
+function safeUrl(u){ return (typeof u === "string" && /^https?:\/\//i.test(u)) ? u : null; }
+
 function addRow(f) {
   const idx = results.length;
   results.push(f);
-  const site = f.url ? `<a href="${f.url}" target="_blank" rel="noopener">${f.site}</a>` : f.site;
+  // all finding fields come from external engines/sites — escape everything.
+  const url = safeUrl(f.url);
+  const siteName = esc(f.site);
+  const site = url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${siteName}</a>` : siteName;
   const extra = { ...(f.extra||{}) };
   const about = extra.about || extra.alert; delete extra.about; delete extra.alert;
   const tags = Object.entries(extra).slice(0,3)
-    .map(([k,v]) => `<span class="tag">${k}: ${String(v).slice(0,40)}</span>`).join(" ");
-  const info = (about ? `<span class="about">${about}</span> ` : "") + tags;
+    .map(([k,v]) => `<span class="tag">${esc(k)}: ${esc(String(v).slice(0,40))}</span>`).join(" ");
+  const info = (about ? `<span class="about">${esc(about)}</span> ` : "") + tags;
   const tr = document.createElement("tr");
   if (f.kind === "breach") tr.className = "breach";
   else if (f.kind === "phone") tr.className = "phone";
@@ -446,7 +451,7 @@ function addRow(f) {
   // only account findings are selectable for removal (breach/phone aren't accounts you delete)
   const chk = (f.kind === "account")
     ? `<input type="checkbox" class="rowchk" data-idx="${idx}" />` : "";
-  tr.innerHTML = `<td>${chk}</td><td>${badge}</td><td>${f.value||""}</td><td class="src">${f.source}</td><td>${info}</td>`;
+  tr.innerHTML = `<td>${chk}</td><td>${badge}</td><td>${esc(f.value||"")}</td><td class="src">${esc(f.source)}</td><td>${info}</td>`;
   $("#rows").appendChild(tr);
   $("#empty").style.display = "none";
   $("#export").disabled = false;
@@ -575,7 +580,7 @@ async function buildRemoval() {
       <div class="step-head">
         <b>${esc(s.site)}</b>
         <span class="diff ${s.difficulty}">${s.difficulty}</span>
-        ${s.profile_url ? `<a href="${esc(s.profile_url)}" target="_blank" rel="noopener">profile ↗</a>` : ""}
+        ${safeUrl(s.profile_url) ? `<a href="${esc(safeUrl(s.profile_url))}" target="_blank" rel="noopener noreferrer">profile ↗</a>` : ""}
       </div>
       <div class="notes">${esc(s.notes)}</div>
       <div class="links">

@@ -8,10 +8,11 @@ import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 
 from .dispatcher import is_safe
+from .security import SECURITY_HEADERS, client_ip, rate_limited
 from .engines import ALL_ENGINES
 from .engines.base import current_job, deep_scan, kill_job
 from .framework import suggest as framework_suggest
@@ -33,6 +34,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Parallax", version="1.0", lifespan=lifespan)
 
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    resp = await call_next(request)
+    for k, v in SECURITY_HEADERS.items():
+        resp.headers.setdefault(k, v)
+    return resp
+
+
 # optional Google sign-in gate (active only when GOOGLE_CLIENT_ID is set)
 from .auth import setup_auth  # noqa: E402
 setup_auth(app)
@@ -40,6 +49,8 @@ setup_auth(app)
 # limits — this is a local recon tool, but keep it from eating itself
 MAX_JOBS = 50            # reject new work past this many live jobs
 MAX_CONCURRENT = 8       # concurrent search jobs (each fans out to all its engines)
+RATE_LIMIT = 15          # max searches per IP per window
+RATE_WINDOW = 60         # seconds
 JOB_TTL = 900            # seconds a job may linger before reaping
 MAX_EVENTS = 8000        # bound per-job event buffer
 
@@ -93,7 +104,9 @@ async def engines() -> list[dict]:
 
 
 @app.post("/api/search")
-async def search(req: SearchRequest) -> dict:
+async def search(req: SearchRequest, request: Request) -> dict:
+    if rate_limited(client_ip(request), limit=RATE_LIMIT, window=RATE_WINDOW):
+        raise HTTPException(429, "rate limit exceeded — slow down a bit")
     if not is_safe(req.query):
         raise HTTPException(400, "invalid query (empty, too long, or unsafe characters)")
     if len(_JOBS) >= MAX_JOBS:
