@@ -2,6 +2,12 @@
 
 *Triangulate a digital footprint across the galaxy.*
 
+<p align="center">
+  <img src="assets/parallax-demo.gif" alt="Parallax constellation search — the query at the center, engines as star-hubs, findings streaming in as connected nodes, breaches pulsing red" width="760" />
+</p>
+
+<p align="center"><em>Live constellation map: the query is the center star, each engine a glowing hub, and every account found streams in as a connected node — breaches flare red. Zoom, pan, and hover in the real app.</em></p>
+
 One web UI that fans a single identifier — **username, email, phone, or full name** —
 out to multiple best-in-class OSINT engines, streams results live, correlates them,
 and gives you one combined report.
