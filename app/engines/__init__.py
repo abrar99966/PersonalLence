@@ -1,6 +1,7 @@
 from .base import Engine
 from .gosearch import GoSearch
 from .holehe import Holehe
+from .hudsonrock import HudsonRock
 from .ignorant import Ignorant
 from .maigret import Maigret
 from .phoneinfoga import PhoneInfoga
@@ -12,6 +13,7 @@ ALL_ENGINES: list[Engine] = [
     Sherlock(),      # username — fast confirm
     GoSearch(),      # username — sites + breach (HudsonRock/ProxyNova)
     Holehe(),        # email — registration across 120+ sites
+    HudsonRock(),    # email — info-stealer breach intel (free API)
     Ignorant(),      # phone — registration (Instagram/Amazon/Snapchat)
     PhoneInfoga(),   # phone — carrier/region + dork links
 ]

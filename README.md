@@ -43,6 +43,7 @@ normalizes their output into one schema, and pivots discovered identifiers back 
 | [sherlock](https://github.com/sherlock-project/sherlock) | username | fast 400+ site confirm | `pip` |
 | [gosearch](https://github.com/ibnaleem/gosearch)    | username | 300+ sites + **breach check** (HudsonRock + ProxyNova) | binary → `./bin` |
 | [holehe](https://github.com/megadose/holehe)        | email    | which of 120+ sites an email is registered on | `pip` |
+| [HudsonRock](https://www.hudsonrock.com/free-tools) | email    | **info-stealer breach intel** — compromise date + exposed services | free API |
 | [ignorant](https://github.com/megadose/ignorant)    | phone    | phone registered on Instagram / Amazon / Snapchat | `pip` |
 | [phoneinfoga](https://github.com/sundowndev/phoneinfoga) | phone | country/carrier + Google dork links | binary → `./bin`, or Docker |
 

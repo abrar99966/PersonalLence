@@ -129,6 +129,12 @@ def test_framework_suggest():
         for res in g["resources"]:
             assert res["pricing"] == "free" and not res["registration"]
 
+def test_hudsonrock_available_and_kind():
+    from app.engines.hudsonrock import HudsonRock
+    e = HudsonRock()
+    assert e.available() is True          # HTTP engine, no binary needed
+    assert InputKind.email in e.accepts
+
 def test_ignorant_regex_and_split():
     lines = ["[+] amazon.com", "[+] instagram.com", "[x] snapchat.com", "[-] nope.com"]
     used = [m.group(1) for m in (_IG_USED.match(l) for l in lines) if m]
