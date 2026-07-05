@@ -20,6 +20,21 @@ normalizes their output into one schema, and pivots discovered identifiers back 
              maigret / sherlock / gosearch / socialscan / holehe / ignorant / phoneinfoga
 ```
 
+## Features
+
+- 🌌 **Live constellation map** — the query is the center star, each engine a glowing
+  hub; findings stream in as connected star-nodes. **Scroll to zoom, drag to pan**,
+  hover to inspect, click to open. Breach nodes flare red with a supernova ring.
+- ⚡ **Parallel + streaming** — every engine *and* every pivot handle runs concurrently;
+  results appear **as they're found**, with a live per-engine progress panel.
+- ⏹ **Stoppable** — cancel mid-scan; the whole subprocess tree is killed in ~1s and the
+  results found so far are kept.
+- 🧭 **Explore Further** — after the scan, 445 curated [OSINT Framework](https://osintframework.com)
+  tools matched to your input type, as manual next-step pivots.
+- 🧹 **Removal Assistant** — deletion links + GDPR/DPDP erasure requests for accounts you own.
+- 🎚 **Fast / Deep** — maigret depth toggle (top-500 vs all ~3000 sites).
+- 🔐 **Google sign-in** (optional, for hosting) · 📤 **JSON export** of results.
+
 ## Engines
 
 | Engine | Input | Role | Install |
@@ -87,10 +102,30 @@ Deletion recipes live in [`app/data/removal_db.json`](app/data/removal_db.json)
 (inspired by justdelete.me); unknown sites fall back to generic settings + an
 erasure request.
 
+## Explore Further (OSINT Framework)
+
+The automated engines can't cover every source — many OSINT resources are manual
+(websites, Google dorks, paid lookups). After each scan, Parallax surfaces a
+categorized **Explore Further** panel: 445 curated resources from the
+[OSINT Framework](https://osintframework.com) (MIT), filtered to the detected
+input kind, with a *free & no-signup* toggle. These open for you to pursue — they
+are deliberately **not** auto-run.
+
+Data lives in [`app/data/osint_framework.json`](app/data/osint_framework.json).
+
+## Fast vs Deep (maigret)
+
+maigret is the deepest engine. A **Deep scan** checks all ~3000 sites (best coverage,
+slower, batches at the end); **Fast** checks the top 500 (quicker, lighter). Toggle it
+per search in the UI. The server default comes from `MAIGRET_DEEP` (Deep locally; the
+cloud deploy sets Fast to stay within free-tier memory).
+
 ## Notes / limits
 - **Python 3.14**: some engines may lack wheels yet. If `pip install` fails for one,
   the app still runs — that engine just shows as missing. Pin `python 3.11–3.12` if needed.
 - holehe / gosearch upstreams move fast; parsers here are best-effort against current CLI output.
+- **Cloud deploy**: see [DEPLOY.md](DEPLOY.md) — needs a container host (Render/Fly/Railway)
+  fronted by Cloudflare; Cloudflare Pages/Workers alone can't run the engines.
 
 ## ⚠️ Legal & ethics
 Use only against targets you are **authorized** to investigate — your own accounts,
