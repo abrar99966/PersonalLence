@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 from .dispatcher import is_safe
 from .engines import ALL_ENGINES
-from .engines.base import current_job, kill_job
+from .engines.base import current_job, deep_scan, kill_job
 from .framework import suggest as framework_suggest
 from .orchestrator import orchestrate
 from .removal import build_removal_plan
@@ -110,6 +110,7 @@ async def search(req: SearchRequest) -> dict:
 
     async def worker() -> None:
         current_job.set(job_id)   # so run_cmd can register this job's subprocesses
+        deep_scan.set(req.deep)   # maigret depth override (None = server default)
         try:
             async with _SEM:  # cap concurrent heavy scans
                 await orchestrate(req.query, req.kind, req.pivot, sink)

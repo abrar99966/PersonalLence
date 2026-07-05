@@ -6,8 +6,14 @@ import json
 import os
 import tempfile
 
+import os
+
 from ..schema import Finding, InputKind
-from .base import Emit, Engine, Progress, _noprog, run_cmd
+from .base import Emit, Engine, Progress, _noprog, deep_scan, run_cmd
+
+# Default when a request doesn't specify: deep (all sites) for local richness.
+# The cloud deploy sets MAIGRET_DEEP=false so the free tier stays light.
+_DEEP_DEFAULT = os.getenv("MAIGRET_DEEP", "true").lower() in ("1", "true", "yes")
 
 
 class Maigret(Engine):
@@ -19,20 +25,20 @@ class Maigret(Engine):
                   progress: Progress = _noprog) -> list[Finding]:
         # maigret writes results to a JSON file (no live stdout of hits), so its
         # findings necessarily arrive as a batch when the scan completes.
+        override = deep_scan.get()
+        deep = _DEEP_DEFAULT if override is None else bool(override)
+
         findings: list[Finding] = []
         with tempfile.TemporaryDirectory(prefix="maigret_") as out:
-            cmd = [
-                self.exe(), target,
-                "-a",                    # scan ALL sites (default is only top-500)
-                "--retries", "1",        # one retry so contention timeouts don't drop hits
-                "--no-progressbar", "--no-color",
-                "--timeout", "30",       # give slow sites room under parallel load
-                "-J", "simple",          # write simple json report
-                "-fo", out,
-            ]
-            # maigret is the deep engine (thousands of sites); it batches at the end,
-            # so give it a generous outer ceiling. Users can Stop early if needed.
-            await run_cmd(cmd, timeout=420)
+            cmd = [self.exe(), target, "--no-progressbar", "--no-color",
+                   "-J", "simple", "-fo", out]
+            if deep:                                  # all ~3000 sites, resilient
+                cmd += ["-a", "--retries", "1", "--timeout", "30"]
+                ceiling = 420
+            else:                                     # fast: top-500, lighter (free tier)
+                cmd += ["--top-sites", "500", "--timeout", "20"]
+                ceiling = 180
+            await run_cmd(cmd, timeout=ceiling)
             for path in glob.glob(os.path.join(out, "**", "*.json"), recursive=True):
                 findings += await self._parse_report(path, target, emit)
         await progress({"found": len(findings)})

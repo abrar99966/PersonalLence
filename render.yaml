@@ -20,3 +20,5 @@ services:
         generateValue: true
       - key: ALLOWED_EMAILS         # optional: comma-separated allow-list (blank = any Google account)
         sync: false
+      - key: MAIGRET_DEEP           # free tier: keep maigret light (top-500) to avoid OOM
+        value: "false"

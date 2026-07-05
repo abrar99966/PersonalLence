@@ -39,6 +39,7 @@ class SearchRequest(BaseModel):
     query: str
     kind: InputKind | None = None     # override auto-detection if provided
     pivot: bool = True                # re-feed discovered identifiers back in
+    deep: bool | None = None          # maigret depth: True=all sites, None=server default
 
 
 class RemovalRequest(BaseModel):

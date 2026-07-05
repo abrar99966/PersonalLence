@@ -24,7 +24,7 @@ ALLOWED_EMAILS = {e.strip().lower() for e in os.getenv("ALLOWED_EMAILS", "").spl
 AUTH_ENABLED = bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
 
 # paths reachable without a session
-_OPEN_PATHS = ("/login", "/auth/callback", "/logout", "/health")
+_OPEN_PATHS = ("/login", "/auth/callback", "/logout", "/health", "/api/me")
 
 _LOGIN_PAGE = """<!doctype html><meta charset=utf-8>
 <title>Parallax — sign in</title>
@@ -70,6 +70,13 @@ def setup_auth(app: FastAPI) -> None:
     @app.get("/health")
     async def health():
         return {"ok": True, "auth": AUTH_ENABLED}
+
+    @app.get("/api/me")
+    async def me(request: Request):
+        from .engines.maigret import _DEEP_DEFAULT
+        return {"authEnabled": AUTH_ENABLED,
+                "user": request.session.get("user"),
+                "deepDefault": _DEEP_DEFAULT}
 
     if not AUTH_ENABLED:
         return  # open mode — no Google routes needed

@@ -113,11 +113,18 @@
   .step .links { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
   .step .links a, .step .links button { font-size:12px; padding:5px 10px; }
   .modal-close { float:right; }
+  header { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+  .userbox { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--muted); }
+  .userbox img { width:26px; height:26px; border-radius:50%; border:1px solid var(--border); }
+  .userbox a { color:var(--accent); text-decoration:none; }
+  .opts { margin-bottom:12px; font-size:13px; color:var(--muted); }
+  .opts label { cursor:pointer; user-select:none; }
 </style>
 </head>
 <body>
 <header>
   <h1>✦ Parallax <span>— triangulate a digital footprint · username · email · phone · name</span></h1>
+  <div class="userbox" id="userbox"></div>
 </header>
 <main>
   <div class="search">
@@ -126,6 +133,11 @@
     <button id="stop" class="danger" style="display:none">■ Stop</button>
     <button id="mapBtn" class="ghost" style="display:none">🗺 Map</button>
     <button id="export" class="ghost" disabled>Export JSON</button>
+  </div>
+  <div class="opts">
+    <label title="maigret: scan all ~3000 sites (slower, more results) vs the top 500 (faster)">
+      <input type="checkbox" id="deep" /> Deep scan <span style="opacity:.7">(maigret: all ~3000 sites)</span>
+    </label>
   </div>
   <div id="progress"></div>
   <div class="bar" id="engines"></div>
@@ -454,7 +466,7 @@ async function run() {
 
   const { job_id } = await (await fetch("/api/search", {
     method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({ query: q })
+    body: JSON.stringify({ query: q, deep: $("#deep").checked })
   })).json();
   currentJob = job_id;
 
@@ -586,6 +598,18 @@ $("#q").addEventListener("keydown", e => { if (e.key === "Enter") run(); });
 $("#galaxyToggle").onclick = () => { $("#galaxyWrap").style.display = "none"; $("#mapBtn").style.display = "inline-block"; };
 $("#mapBtn").onclick = () => { $("#galaxyWrap").style.display = "block"; $("#mapBtn").style.display = "none"; };
 $("#stop").onclick = stopSearch;
+
+async function loadMe() {
+  let me; try { me = await (await fetch("/api/me")).json(); } catch { return; }
+  if (me.deepDefault) $("#deep").checked = true;   // reflect server default
+  const u = me.user;
+  if (u) {
+    $("#userbox").innerHTML =
+      (u.picture ? `<img src="${esc(u.picture)}" alt="" referrerpolicy="no-referrer"/>` : "")
+      + `<span>${esc(u.name || u.email)}</span> · <a href="/logout">sign out</a>`;
+  }
+}
+loadMe();
 loadEngines();
 </script>
 </body>

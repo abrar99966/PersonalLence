@@ -13,6 +13,8 @@ from ..schema import Finding, InputKind
 # per-request job id (set by the API worker) so we can track & kill a job's
 # subprocesses directly, without relying on slow Proactor cancellation.
 current_job: contextvars.ContextVar = contextvars.ContextVar("current_job", default=None)
+# per-request deep-scan override (True/False), or None to use the engine default.
+deep_scan: contextvars.ContextVar = contextvars.ContextVar("deep_scan", default=None)
 _LIVE_PROCS: dict = {}   # job_id -> set of live Process objects
 
 
