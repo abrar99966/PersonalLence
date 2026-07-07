@@ -39,6 +39,12 @@ normalizes their output into one schema, and pivots discovered identifiers back 
              maigret / sherlock / gosearch / holehe / ignorant / phoneinfoga
 ```
 
+> ⚗️ **Research prototype.** Parallax is built for education and **authorized** OSINT
+> research — it is **not** a commercial product or a professional investigation service.
+> Provided **as-is, with no warranty**. Results may be incomplete, inaccurate, or belong to
+> a different person who shares the same identifier. You are solely responsible for lawful,
+> authorized use (see [Legal & ethics](#-legal--ethics)).
+
 ## Features
 
 - 🌌 **Live constellation map** — the query is the center star, each engine a glowing
@@ -149,7 +155,14 @@ cloud deploy sets Fast to stay within free-tier memory).
   fronted by Cloudflare; Cloudflare Pages/Workers alone can't run the engines.
 
 ## ⚠️ Legal & ethics
+
+**Status: research prototype.** This project is an educational proof-of-concept, not a
+finished or commercial product. It comes with **no warranty and no guarantee of accuracy** —
+results can be wrong, stale, or belong to someone else who happens to share a username or
+name. Do not treat any result as proof that a person created or controls an account.
+
 Use only against targets you are **authorized** to investigate — your own accounts,
 consented subjects, sanctioned pentest scope, or lawful investigations.
 No Aadhaar/PAN/voter-ID/bank lookups — those are illegal under India's IT Act & DPDP Act 2023.
-Public-profile OSINT only. You are responsible for how you use this.
+Public-profile OSINT only. **You are solely responsible for how you use this**, and for
+complying with all applicable laws and the terms of service of every platform queried.

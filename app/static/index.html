@@ -27,6 +27,12 @@
   h1 .logo { background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent;
              font-size:22px; filter:drop-shadow(0 0 12px rgba(120,140,255,.5)); }
   h1 span { color:var(--muted); font-weight:400; font-size:12.5px; letter-spacing:0; }
+  h1 .proto { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+              color:var(--warn); border:1px solid rgba(227,179,65,.5); background:rgba(227,179,65,.12);
+              padding:2px 7px; border-radius:999px; }
+  .app-footer { max-width:1040px; margin:44px auto 0; padding:16px 4px 0; border-top:1px solid var(--border);
+                color:var(--muted); font-size:12px; line-height:1.6; text-align:center; }
+  .app-footer b { color:var(--fg); }
   main { max-width:1040px; margin:0 auto; padding:30px 24px 60px; }
   .hero-sub { text-align:center; color:var(--muted); font-size:14px; margin:2px 0 22px; }
   .hero-sub b { background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; }
@@ -252,7 +258,8 @@
   </div>
 </div>
 <header>
-  <h1><span class="logo">✦</span> Parallax <span>— digital footprint scanner · username · email · phone · name</span></h1>
+  <h1><span class="logo">✦</span> Parallax <span class="proto">research prototype</span>
+      <span>— digital footprint scanner · username · email · phone · name</span></h1>
   <div class="userbox" id="userbox"></div>
 </header>
 <main>
@@ -302,6 +309,13 @@
     <div class="empty" id="empty">Enter an identifier and hit Search.</div>
   </div>
   <div id="explore"></div>
+  <footer class="app-footer">
+    ⚗️ <b>Parallax is a research prototype</b>, built for education and authorized OSINT
+    research — not a commercial product or professional investigation service. Provided
+    <b>as-is with no warranty</b>; results may be incomplete, inaccurate, or belong to a
+    different person sharing the same identifier. You are responsible for lawful,
+    authorized use.
+  </footer>
 </main>
 <div class="tip" id="tip"></div>
 

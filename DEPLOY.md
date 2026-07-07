@@ -1,5 +1,9 @@
 # Deploying Parallax
 
+> ⚗️ **Research prototype** — educational proof-of-concept, not a commercial product.
+> If you host it publicly, keep it gated (Google sign-in / `ALLOWED_EMAILS`) and make
+> clear to users that results are unverified and for authorized research only.
+
 > ⚠️ **Cloudflare Pages/Workers can't run this.** Parallax is a Python server that
 > spawns CLI subprocesses (maigret, sherlock, gosearch, phoneinfoga…) and runs
 > multi-minute scans. Pages/Workers have no Python runtime, no subprocess, no
