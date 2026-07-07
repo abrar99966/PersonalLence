@@ -5,23 +5,59 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Parallax — digital footprint finder</title>
 <style>
-  :root { --bg:#0d1117; --panel:#161b22; --border:#30363d; --fg:#e6edf3; --muted:#8b949e;
-          --accent:#2f81f7; --ok:#3fb950; --warn:#d29922; --err:#f85149; --orange:#db6d28; }
+  :root { --bg:#080b14; --bg2:#0d1220; --panel:rgba(22,28,44,.66); --panel-solid:#141a2b;
+          --border:rgba(120,140,190,.16); --border2:rgba(120,140,190,.28);
+          --fg:#eaf0fb; --muted:#8a95ad; --accent:#5b8bff; --accent2:#9d7bff; --cyan:#56d4dd;
+          --ok:#3fb950; --warn:#e3b341; --err:#ff6b63; --orange:#db6d28;
+          --grad:linear-gradient(135deg,#5b8bff,#9d7bff 55%,#56d4dd);
+          --radius:14px; --shadow:0 10px 40px -12px rgba(0,0,0,.6); }
   * { box-sizing: border-box; }
-  body { margin:0; font:15px/1.5 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); }
-  header { padding:20px 24px; border-bottom:1px solid var(--border); }
-  h1 { margin:0; font-size:20px; }
-  h1 span { color:var(--muted); font-weight:400; font-size:13px; }
-  main { max-width:1000px; margin:0 auto; padding:24px; }
-  .search { display:flex; gap:8px; margin-bottom:16px; }
-  input[type=text] { flex:1; padding:10px 12px; background:var(--panel); border:1px solid var(--border);
-                     border-radius:8px; color:var(--fg); font-size:15px; }
-  button { padding:10px 18px; background:var(--accent); color:#fff; border:0; border-radius:8px;
-           cursor:pointer; font-size:15px; }
-  button:disabled { opacity:.5; cursor:default; }
-  button.ghost { background:transparent; border:1px solid var(--border); color:var(--fg); }
-  button.warn { background:var(--orange); }
-  button.danger { background:var(--err); }
+  html { scroll-behavior:smooth; }
+  body { margin:0; color:var(--fg); font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,system-ui,sans-serif;
+         background:
+           radial-gradient(1100px 600px at 12% -8%, rgba(91,139,255,.14), transparent 60%),
+           radial-gradient(1000px 620px at 108% 8%, rgba(157,123,255,.13), transparent 58%),
+           linear-gradient(180deg,#0a0f1c,#080b14 60%,#070912);
+         background-attachment:fixed; min-height:100vh; -webkit-font-smoothing:antialiased; }
+  ::selection { background:rgba(91,139,255,.32); }
+  header { display:flex; align-items:center; justify-content:space-between; gap:16px;
+           padding:18px 28px; border-bottom:1px solid var(--border);
+           background:rgba(10,14,26,.55); backdrop-filter:blur(12px); position:sticky; top:0; z-index:5; }
+  h1 { margin:0; font-size:20px; font-weight:700; letter-spacing:-.01em; display:flex; align-items:center; gap:9px; }
+  h1 .logo { background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent;
+             font-size:22px; filter:drop-shadow(0 0 12px rgba(120,140,255,.5)); }
+  h1 span { color:var(--muted); font-weight:400; font-size:12.5px; letter-spacing:0; }
+  main { max-width:1040px; margin:0 auto; padding:30px 24px 60px; }
+  .hero-sub { text-align:center; color:var(--muted); font-size:14px; margin:2px 0 22px; }
+  .hero-sub b { background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .search { display:flex; gap:9px; margin-bottom:14px; position:relative; }
+  input[type=text] { flex:1; padding:14px 16px; background:rgba(13,18,32,.7); border:1px solid var(--border2);
+                     border-radius:12px; color:var(--fg); font-size:15.5px; transition:border-color .18s, box-shadow .18s; }
+  input[type=text]::placeholder { color:#5d6883; }
+  input[type=text]:focus { outline:none; border-color:var(--accent);
+                           box-shadow:0 0 0 4px rgba(91,139,255,.16), 0 0 30px -6px rgba(91,139,255,.4); }
+  button { padding:13px 20px; background:var(--grad); color:#fff; border:0; border-radius:12px;
+           cursor:pointer; font-size:14.5px; font-weight:600; letter-spacing:.01em; transition:transform .12s, box-shadow .18s, opacity .15s;
+           box-shadow:0 6px 20px -8px rgba(91,139,255,.6); }
+  button:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 10px 26px -8px rgba(120,140,255,.7); }
+  button:active:not(:disabled) { transform:translateY(0); }
+  button:disabled { opacity:.45; cursor:default; box-shadow:none; }
+  button.ghost { background:rgba(30,38,60,.5); border:1px solid var(--border2); color:var(--fg); box-shadow:none; }
+  button.ghost:hover:not(:disabled) { background:rgba(45,56,88,.7); }
+  button.warn { background:linear-gradient(135deg,#e0913a,#db6d28); }
+  button.danger { background:linear-gradient(135deg,#ff7b63,#ef4444); }
+  /* premium stat dashboard */
+  #stats { display:none; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:20px; }
+  #stats.show { display:grid; animation:rise .4s ease both; }
+  .stat { position:relative; overflow:hidden; padding:16px 18px; border-radius:var(--radius);
+          background:var(--panel); border:1px solid var(--border); backdrop-filter:blur(10px); box-shadow:var(--shadow); }
+  .stat::before { content:""; position:absolute; inset:0 auto 0 0; width:3px; background:var(--grad); opacity:.9; }
+  .stat .num { font-size:30px; font-weight:750; letter-spacing:-.02em; line-height:1; }
+  .stat .lbl { color:var(--muted); font-size:12px; margin-top:6px; text-transform:uppercase; letter-spacing:.06em; }
+  .stat.danger .num { color:var(--err); } .stat.danger::before { background:linear-gradient(180deg,#ff6b63,#ef4444); }
+  .stat.ok .num { color:var(--ok); }
+  .stat .risk { display:inline-block; margin-top:6px; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:700; }
+  @keyframes rise { from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:none} }
   /* live per-engine progress */
   #progress { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
   #progress:empty { margin:0; }
@@ -36,25 +72,34 @@
   .pg.err .pg-fill { width:100%; background:var(--err)!important; }
   .pg.err .pg-cnt { color:var(--err); }
   @keyframes sweep { 0%{left:-35%} 100%{left:100%} }
-  .bar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:16px; color:var(--muted); font-size:13px; }
-  .pill { padding:2px 8px; border:1px solid var(--border); border-radius:999px; }
-  .pill.on { color:var(--ok); border-color:var(--ok); }
-  .pill.off { color:var(--err); border-color:var(--err); }
-  .status { min-height:20px; color:var(--muted); font-size:13px; margin-bottom:8px; }
+  .bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:16px; color:var(--muted); font-size:12.5px; }
+  .pill { padding:3px 10px; border:1px solid var(--border2); border-radius:999px; background:rgba(30,38,60,.4); }
+  .pill.on { color:var(--ok); border-color:rgba(63,185,80,.5); }
+  .pill.off { color:var(--muted); opacity:.6; }
+  .status { min-height:20px; color:var(--muted); font-size:13px; margin-bottom:10px; }
   .actions { display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
-  .actions input[type=text] { flex:0 1 200px; padding:7px 10px; font-size:13px; }
+  .actions input[type=text] { flex:0 1 220px; padding:9px 12px; font-size:13px; }
+  .table-wrap { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+                backdrop-filter:blur(10px); box-shadow:var(--shadow); overflow:hidden; }
   table { width:100%; border-collapse:collapse; }
-  th,td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); font-size:14px; vertical-align:top; }
-  th { color:var(--muted); font-weight:600; position:sticky; top:0; background:var(--bg); }
+  th,td { text-align:left; padding:11px 14px; border-bottom:1px solid var(--border); font-size:14px; vertical-align:top; }
+  tbody tr { transition:background .12s; }
+  tbody tr:hover td { background:rgba(91,139,255,.06); }
+  tbody tr:last-child td { border-bottom:0; }
+  th { color:var(--muted); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em;
+       position:sticky; top:0; background:rgba(15,20,34,.92); backdrop-filter:blur(6px); }
   td a { color:var(--accent); text-decoration:none; word-break:break-all; }
-  .src { font-size:12px; color:var(--muted); }
-  .tag { display:inline-block; padding:1px 6px; border-radius:4px; font-size:11px; background:#21262d; color:var(--muted); }
+  td a:hover { text-decoration:underline; }
+  .src { font-size:11px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+  .tag { display:inline-block; padding:2px 8px; border-radius:6px; font-size:11px;
+         background:rgba(120,140,190,.12); color:var(--muted); }
   .about { font-size:13px; color:var(--fg); }
   tr.breach .about { color:var(--err); font-weight:600; }
-  tr.breach td { background:rgba(248,81,73,.12); }
+  tr.breach td { background:rgba(255,107,99,.10); }
+  tr.breach:hover td { background:rgba(255,107,99,.16); }
   tr.breach .site-badge { color:var(--err); font-weight:600; }
-  tr.phone td { background:rgba(47,129,247,.08); }
-  .empty { color:var(--muted); padding:40px; text-align:center; }
+  tr.phone td { background:rgba(91,139,255,.06); }
+  .empty { color:var(--muted); padding:44px; text-align:center; font-size:14px; }
   /* explore further */
   #explore { margin-top:24px; }
   #explore h3 { font-size:16px; margin:0 0 4px; cursor:pointer; }
@@ -113,21 +158,24 @@
   .step .links { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
   .step .links a, .step .links button { font-size:12px; padding:5px 10px; }
   .modal-close { float:right; }
-  header { display:flex; align-items:center; justify-content:space-between; gap:16px; }
   .userbox { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--muted); }
-  .userbox img { width:26px; height:26px; border-radius:50%; border:1px solid var(--border); }
+  .userbox img { width:28px; height:28px; border-radius:50%; border:1px solid var(--border2); }
   .userbox a { color:var(--accent); text-decoration:none; }
   .opts { margin-bottom:12px; font-size:13px; color:var(--muted); }
   .opts label { cursor:pointer; user-select:none; }
-  .disclaimer-note { background:rgba(47,129,247,.08); border:1px solid rgba(47,129,247,.35);
-                     border-radius:8px; padding:9px 12px; margin-bottom:14px; font-size:12.5px;
-                     line-height:1.5; color:var(--muted); }
+  .opts input[type=checkbox] { accent-color:var(--accent); }
+  .disclaimer-note { background:linear-gradient(135deg,rgba(91,139,255,.09),rgba(157,123,255,.07));
+                     border:1px solid rgba(91,139,255,.28); border-radius:12px;
+                     padding:11px 14px; margin-bottom:16px; font-size:12.5px; line-height:1.55; color:var(--muted); }
   .disclaimer-note b { color:var(--fg); }
+  #explore, .modal { background:var(--panel); backdrop-filter:blur(10px); box-shadow:var(--shadow); }
+  #explore { margin-top:24px; padding:18px 20px; border:1px solid var(--border); border-radius:var(--radius); }
+  @media (max-width:640px){ header{padding:14px 16px} h1 span{display:none} main{padding:22px 14px} }
 </style>
 </head>
 <body>
 <header>
-  <h1>✦ Parallax <span>— triangulate a digital footprint · username · email · phone · name</span></h1>
+  <h1><span class="logo">✦</span> Parallax <span>— digital footprint scanner · username · email · phone · name</span></h1>
   <div class="userbox" id="userbox"></div>
 </header>
 <main>
@@ -163,16 +211,19 @@
     </div>
   </div>
   <div class="status" id="status"></div>
+  <div id="stats"></div>
   <div class="actions" id="actions" style="display:none">
     <label><input type="checkbox" id="selall" /> select all accounts</label>
     <input type="text" id="requester" placeholder="your name (signs erasure request)" />
     <button class="warn" id="removeBtn" disabled>Removal plan (0)</button>
   </div>
-  <table>
-    <thead><tr><th style="width:28px"></th><th>Site</th><th>Match</th><th>Engine</th><th>Info</th></tr></thead>
-    <tbody id="rows"></tbody>
-  </table>
-  <div class="empty" id="empty">Enter an identifier and hit Search.</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th style="width:28px"></th><th>Site</th><th>Match</th><th>Engine</th><th>Info</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="empty" id="empty">Enter an identifier and hit Search.</div>
+  </div>
   <div id="explore"></div>
 </main>
 <div class="tip" id="tip"></div>
@@ -474,6 +525,7 @@ async function run() {
   results = []; $("#rows").innerHTML = ""; $("#export").disabled = true;
   $("#actions").style.display = "none"; $("#selall").checked = false; refreshRemoveBtn();
   $("#explore").innerHTML = ""; detectedKind = null; $("#progress").innerHTML = "";
+  $("#stats").className = ""; $("#stats").innerHTML = "";
   $("#empty").style.display = "none";
   $("#galaxyWrap").style.display = "block"; $("#mapBtn").style.display = "none"; Galaxy.reset(q);
   $("#go").disabled = true; $("#stop").style.display = "inline-block";
@@ -512,8 +564,8 @@ async function run() {
     else if (e.type === "engine_skip") { /* silent */ }
     else if (e.type === "pivot") { /* galaxy hubs handle it */ }
     else if (e.type === "finding") { addRow(e.finding); Galaxy.addFinding(e.finding); }
-    else if (e.type === "done") { active.clear(); $("#status").textContent = `Done — ${e.count} unique results.`; loadExplore(); }
-    else if (e.type === "cancelled") { active.clear(); document.querySelectorAll(".pg.run").forEach(el=>el.className="pg err"); $("#status").textContent = `⏹ Search stopped — ${results.length} results kept.`; if (detectedKind) loadExplore(); }
+    else if (e.type === "done") { active.clear(); $("#status").textContent = `Done — ${e.count} unique results.`; renderStats(); loadExplore(); }
+    else if (e.type === "cancelled") { active.clear(); document.querySelectorAll(".pg.run").forEach(el=>el.className="pg err"); $("#status").textContent = `⏹ Search stopped — ${results.length} results kept.`; renderStats(); if (detectedKind) loadExplore(); }
     else if (e.type === "fatal") { $("#status").textContent = `Error: ${e.error}`; }
   }
   const finish = () => { currentJob = null; $("#go").disabled = false; $("#stop").style.display = "none";
@@ -545,6 +597,28 @@ async function stopSearch() {
 }
 
 function esc(s) { return String(s??"").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function renderStats() {
+  const accounts = results.filter(f => f.kind === "account");
+  const breaches = results.filter(f => f.kind === "breach");
+  const platforms = new Set(accounts.map(f => (f.site||"").toLowerCase())).size;
+  const engines = new Set(results.map(f => f.source)).size;
+  // exposure heuristic
+  let risk = "Low", rc = "#3fb950";
+  if (breaches.length) { risk = "High"; rc = "#ff6b63"; }
+  else if (accounts.length >= 20) { risk = "Elevated"; rc = "#e3b341"; }
+  else if (accounts.length >= 8) { risk = "Moderate"; rc = "#5b8bff"; }
+  const tile = (num, lbl, cls="") => `<div class="stat ${cls}"><div class="num">${num}</div><div class="lbl">${lbl}</div></div>`;
+  const s = $("#stats");
+  s.innerHTML =
+    tile(accounts.length, "Accounts found")
+    + tile(breaches.length, "Breach exposures", breaches.length ? "danger" : "ok")
+    + tile(platforms, "Platforms")
+    + tile(engines, "Sources")
+    + `<div class="stat"><div class="num" style="color:${rc}">${risk}</div>`
+      + `<div class="lbl">Exposure</div></div>`;
+  s.className = "show";
+}
 
 async function loadExplore() {
   if (!detectedKind) return;
