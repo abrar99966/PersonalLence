@@ -119,6 +119,10 @@
   .userbox a { color:var(--accent); text-decoration:none; }
   .opts { margin-bottom:12px; font-size:13px; color:var(--muted); }
   .opts label { cursor:pointer; user-select:none; }
+  .disclaimer-note { background:rgba(47,129,247,.08); border:1px solid rgba(47,129,247,.35);
+                     border-radius:8px; padding:9px 12px; margin-bottom:14px; font-size:12.5px;
+                     line-height:1.5; color:var(--muted); }
+  .disclaimer-note b { color:var(--fg); }
 </style>
 </head>
 <body>
@@ -138,6 +142,12 @@
     <label title="maigret: scan all ~3000 sites (slower, more results) vs the top 500 (faster)">
       <input type="checkbox" id="deep" /> Deep scan <span style="opacity:.7">(maigret: all ~3000 sites)</span>
     </label>
+  </div>
+  <div class="disclaimer-note" id="disclaimerNote">
+    ℹ️ <b>Results show accounts that use this identifier — not proof they are yours.</b>
+    Many people share the same username or name, so a match may belong to someone else entirely.
+    A profile appearing here does <b>not</b> mean you created it, and a missing one does not prove
+    it doesn't exist. Use this only on identifiers you're authorized to investigate.
   </div>
   <div id="progress"></div>
   <div class="bar" id="engines"></div>
